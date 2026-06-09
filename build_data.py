@@ -66,12 +66,13 @@ def build_epoch(epoch, tokens):
             "logo": t.get("logoURI"), "address": t.get("address"),
             "volume": volume, "trades": trades, "traders": len(lb),
             "capped": len(lb) >= LIMIT,
-            "top": [{
+            # Tam ilk-100 listesi (cuzdan siralamasi aramasi icin)
+            "board": [{
                 "rank": r.get("rank"),
                 "name": r.get("username") or r.get("wallet_address") or "—",
-                "volume": float(r.get(vol_key) or 0),
+                "volume": round(float(r.get(vol_key) or 0), 2),
                 "vip": bool(r.get("is_vip")),
-            } for r in lb[:5]],
+            } for r in lb],
         })
 
     out.sort(key=lambda x: x["volume"], reverse=True)

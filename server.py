@@ -90,14 +90,14 @@ def build_data(epoch):
 
         volume = sum(float(r.get(vol_key) or 0) for r in lb)
         trades = sum(int(r.get(trd_key) or 0) for r in lb)
-        top = [
+        board = [
             {
                 "rank": r.get("rank"),
                 "name": r.get("username") or r.get("wallet_address") or "—",
-                "volume": float(r.get(vol_key) or 0),
+                "volume": round(float(r.get(vol_key) or 0), 2),
                 "vip": bool(r.get("is_vip")),
             }
-            for r in lb[:5]
+            for r in lb
         ]
 
         grand_volume += volume
@@ -111,7 +111,7 @@ def build_data(epoch):
             "trades": trades,
             "traders": len(lb),
             "capped": len(lb) >= LIMIT,
-            "top": top,
+            "board": board,
         })
 
     out.sort(key=lambda x: x["volume"], reverse=True)

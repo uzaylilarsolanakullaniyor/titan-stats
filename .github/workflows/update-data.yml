@@ -2,7 +2,7 @@ name: PreStocks verisini guncelle
 
 on:
   schedule:
-    - cron: "0 * * * *"   # her saat basi (UTC). Sik istersen "*/30 * * * *" yap.
+    - cron: "*/30 * * * *"   # yarim saatte bir (UTC)
   workflow_dispatch: {}    # Actions sekmesinden elle de calistirilabilir
 
 permissions:
