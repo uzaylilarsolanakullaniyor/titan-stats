@@ -299,15 +299,23 @@ function load(epoch){
   render(data);
 }
 
-// GitHub Actions her saat data.json'i gunceller; sayfa acilirken canli surumu cekmeye calisir.
-async function init(){
+// Veri kaynagi onceligi:
+//  1) /api/data   -> Vercel sunucusuz fonksiyonu (CANLI, gercek zamanli)
+//  2) ./data.json -> GitHub Pages'te Action'in urettigi statik dosya
+//  3) gomulu SNAPSHOT -> cevrimdisi yedek
+async function fetchSource(url, opts){
   try{
-    const r = await fetch('./data.json?t=' + Date.now(), {cache:'no-store'});
-    if(r.ok){
-      const live = await r.json();
-      if(live && live.all && Array.isArray(live.all.tokens)) DATA = live;
-    }
-  }catch(e){ /* data.json yoksa gomulu veriyle devam */ }
+    const r = await fetch(url, opts);
+    if(!r.ok) return null;
+    const j = await r.json();
+    if(j && j.all && Array.isArray(j.all.tokens)) return j;
+  }catch(e){}
+  return null;
+}
+async function init(){
+  const live = await fetchSource('/api/data?t=' + Date.now(), {cache:'no-store'})
+            || await fetchSource('./data.json?t=' + Date.now(), {cache:'no-store'});
+  if(live) DATA = live;
   load(currentEpoch);
 }
 
