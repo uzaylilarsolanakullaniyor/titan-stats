@@ -1,0 +1,40 @@
+name: PreStocks verisini guncelle
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # her saat basi (UTC). Sik istersen "*/30 * * * *" yap.
+  workflow_dispatch: {}    # Actions sekmesinden elle de calistirilabilir
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repoyu al
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Veriyi cek (data.json uret)
+        run: python3 build_data.py
+
+      - name: Degisiklik varsa commit'le
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain data.json)" ]; then
+            git add data.json
+            git commit -m "chore: PreStocks verisini guncelle ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+            git push
+          else
+            echo "Veri degismemis, commit yok."
+          fi

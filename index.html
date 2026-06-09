@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Titan PreStocks · Hacim Analizi</title>
+<style>
+  :root{
+    --bg:#070912;
+    --glass: rgba(255,255,255,.06);
+    --glass-strong: rgba(255,255,255,.09);
+    --stroke: rgba(255,255,255,.12);
+    --stroke-soft: rgba(255,255,255,.07);
+    --txt:#f4f6fb;
+    --muted:#9aa3b8;
+    --accent:#6ea8ff;
+    --accent2:#b388ff;
+    --good:#5ad6a0;
+    --shadow: 0 20px 60px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--txt);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    min-height:100vh;
+    position:relative;
+  }
+
+  /* ---------- animated background blobs ---------- */
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;filter:saturate(1.1)}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;mix-blend-mode:screen;animation:float 22s ease-in-out infinite}
+  .blob.b1{width:46vw;height:46vw;background:radial-gradient(circle at 30% 30%,#3d6bff,#1b2a6b 70%);top:-12vw;left:-8vw}
+  .blob.b2{width:42vw;height:42vw;background:radial-gradient(circle at 50% 50%,#b25cff,#5a1b8a 70%);bottom:-14vw;right:-8vw;animation-delay:-7s}
+  .blob.b3{width:34vw;height:34vw;background:radial-gradient(circle at 50% 50%,#19c2a3,#0c5c5c 70%);top:38%;left:55%;animation-delay:-13s;opacity:.4}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(4vw,-3vw) scale(1.08)}
+    66%{transform:translate(-3vw,4vw) scale(.95)}
+  }
+  .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  /* ---------- layout ---------- */
+  .wrap{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:48px 24px 80px}
+
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:34px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand .mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
+    background:linear-gradient(140deg,var(--accent),var(--accent2));box-shadow:0 8px 24px rgba(110,168,255,.35);font-weight:800;font-size:20px}
+  .brand h1{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .brand p{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .segment{display:flex;padding:4px;border-radius:14px;background:var(--glass);border:1px solid var(--stroke-soft);backdrop-filter:blur(20px)}
+  .segment button{appearance:none;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;
+    padding:8px 14px;border-radius:10px;cursor:pointer;transition:.25s;font-family:inherit}
+  .segment button.active{background:linear-gradient(140deg,rgba(110,168,255,.9),rgba(179,136,255,.9));color:#fff;box-shadow:0 6px 16px rgba(110,168,255,.35)}
+  .segment button:hover:not(.active){color:var(--txt)}
+  .iconbtn{appearance:none;border:1px solid var(--stroke-soft);background:var(--glass);color:var(--txt);
+    width:42px;height:42px;border-radius:13px;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(20px);transition:.25s}
+  .iconbtn:hover{background:var(--glass-strong)}
+  .iconbtn svg{width:18px;height:18px}
+  .iconbtn.spin svg{animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- glass card base ---------- */
+  .glass{
+    background:linear-gradient(160deg,var(--glass-strong),var(--glass));
+    border:1px solid var(--stroke);
+    border-radius:24px;
+    backdrop-filter:blur(30px) saturate(1.4);
+    -webkit-backdrop-filter:blur(30px) saturate(1.4);
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.14);
+    position:relative;overflow:hidden;
+  }
+  .glass::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.10),transparent 35%)}
+
+  /* ---------- hero ---------- */
+  .hero{padding:34px 36px;margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;gap:30px;flex-wrap:wrap}
+  .hero .label{font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1.4px}
+  .hero .total{font-size:clamp(40px,7vw,76px);font-weight:800;line-height:1.02;margin-top:8px;
+    background:linear-gradient(120deg,#fff 20%,#a9c6ff 55%,#cdb2ff);-webkit-background-clip:text;background-clip:text;color:transparent;
+    letter-spacing:-1.5px}
+  .hero .sub{color:var(--muted);font-size:13.5px;margin-top:10px;max-width:420px;line-height:1.5}
+  .hero-stats{display:flex;gap:30px;flex-wrap:wrap}
+  .hero-stats .s .v{font-size:26px;font-weight:700}
+  .hero-stats .s .k{font-size:12px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
+
+  /* ---------- chart ---------- */
+  .panel{padding:26px 30px;margin-bottom:24px}
+  .panel h2{font-size:15px;font-weight:700;margin-bottom:4px}
+  .panel .hint{font-size:12px;color:var(--muted);margin-bottom:22px}
+  .bars{display:flex;flex-direction:column;gap:16px}
+  .bar-row{display:grid;grid-template-columns:150px 1fr auto;align-items:center;gap:16px}
+  .bar-id{display:flex;align-items:center;gap:11px;min-width:0}
+  .bar-id img{width:30px;height:30px;border-radius:9px;background:#fff;object-fit:cover;flex:none;box-shadow:0 3px 9px rgba(0,0,0,.4)}
+  .bar-id .nm{font-weight:700;font-size:13.5px}
+  .bar-id .ad{font-size:11px;color:var(--muted)}
+  .track{height:30px;border-radius:10px;background:rgba(255,255,255,.05);overflow:hidden;position:relative;border:1px solid var(--stroke-soft)}
+  .fill{height:100%;width:0;border-radius:10px;position:relative;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    transition:width 1.1s cubic-bezier(.22,1,.36,1);box-shadow:0 0 20px rgba(110,168,255,.35)}
+  .fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
+    transform:translateX(-100%);animation:shine 2.6s ease-in-out infinite}
+  @keyframes shine{0%{transform:translateX(-100%)}60%,100%{transform:translateX(220%)}}
+  .bar-val{font-weight:700;font-size:14px;text-align:right;min-width:120px;font-variant-numeric:tabular-nums}
+  .bar-val small{display:block;color:var(--muted);font-weight:500;font-size:11px}
+
+  /* ---------- token cards ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:18px}
+  .card{padding:22px;cursor:default;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s;opacity:0;transform:translateY(18px)}
+  .card.in{opacity:1;transform:none}
+  .card:hover{transform:translateY(-6px) scale(1.012)}
+  .card .chead{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+  .card .chead img{width:44px;height:44px;border-radius:13px;background:#fff;object-fit:cover;box-shadow:0 6px 16px rgba(0,0,0,.45)}
+  .card .chead .t .s{font-weight:800;font-size:16px;letter-spacing:.3px}
+  .card .chead .t .n{font-size:11.5px;color:var(--muted)}
+  .card .chead .rk{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted);
+    background:rgba(255,255,255,.06);border:1px solid var(--stroke-soft);padding:5px 9px;border-radius:9px}
+  .card .vol{font-size:27px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .card .vlabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .card .mini{height:6px;border-radius:6px;background:rgba(255,255,255,.06);margin:16px 0;overflow:hidden}
+  .card .mini i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+  .card .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);padding:5px 0}
+  .card .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .pct{color:var(--good);font-weight:700}
+
+  footer{margin-top:34px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
+  footer .note{display:inline-block;background:var(--glass);border:1px solid var(--stroke-soft);padding:8px 16px;border-radius:12px;backdrop-filter:blur(20px)}
+  a{color:var(--accent);text-decoration:none}
+
+  .skeleton{animation:pulse 1.3s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:.85}}
+  .err{color:#ff8c8c;font-size:13px;text-align:center;padding:20px}
+
+  @media(max-width:640px){
+    .bar-row{grid-template-columns:42px 1fr;grid-template-rows:auto auto}
+    .bar-id .nm,.bar-id .ad{display:none}
+    .bar-val{grid-column:2;text-align:left}
+  }
+</style>
+</head>
+<body>
+  <div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+  <div class="grain"></div>
+
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark">T</div>
+        <div>
+          <h1>Titan PreStocks · Hacim Analizi</h1>
+          <p>PreStocks kampanyası — token bazında işlem hacmi</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="segment" id="epochSeg">
+          <button data-epoch="all" class="active">Tüm Kampanya</button>
+          <button data-epoch="1">Epoch 1</button>
+          <button data-epoch="2">Epoch 2</button>
+          <button data-epoch="3">Epoch 3</button>
+          <button data-epoch="4">Epoch 4</button>
+        </div>
+        <button class="iconbtn" id="refresh" title="Yenile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="glass hero">
+      <div>
+        <div class="label">Toplam İşlem Hacmi</div>
+        <div class="total" id="grandTotal">$0</div>
+        <div class="sub" id="grandSub">Yükleniyor…</div>
+      </div>
+      <div class="hero-stats">
+        <div class="s"><div class="v" id="hsTokens">—</div><div class="k">Token</div></div>
+        <div class="s"><div class="v" id="hsTrades">—</div><div class="k">Toplam İşlem</div></div>
+        <div class="s"><div class="v" id="hsTop">—</div><div class="k">Lider Token</div></div>
+      </div>
+    </section>
+
+    <section class="glass panel">
+      <h2>Token Bazında Hacim Dağılımı</h2>
+      <div class="hint" id="chartHint">İlk 100 işlemci bazında toplam hacim</div>
+      <div class="bars" id="bars"></div>
+    </section>
+
+    <div class="grid" id="grid"></div>
+
+    <footer>
+      <div class="note" id="footNote">Veri kaynağı: titan.exchange/api/wallet-stats/prestock-leaderboard</div>
+    </footer>
+  </div>
+
+<script>
+const fmtUSD = (n) => {
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + Math.round(n).toLocaleString('en-US');
+};
+const fmtFull = (n) => '$' + Math.round(n).toLocaleString('en-US');
+const fmtNum = (n) => Math.round(n).toLocaleString('en-US');
+
+// animated count-up
+function countUp(el, to, fmt, dur=1200){
+  const from = 0, t0 = performance.now();
+  function step(t){
+    const p = Math.min((t-t0)/dur, 1);
+    const e = 1 - Math.pow(1-p, 3); // easeOutCubic
+    el.textContent = fmt(from + (to-from)*e);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+let currentEpoch = 'all';
+
+// Veriler sayfaya gomulu (statik) — sunucu/baglanti gerekmez, GitHub Pages'te calisir.
+const SNAPSHOT = /*__SNAPSHOT__*/{"all": {"epoch": "all", "limit": 100, "campaign": 4, "tokens": [{"symbol": "SPACEX", "name": "SpaceX PreStocks", "logo": "https://www.prestocks.com/logos/spacex.png", "address": "PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh", "volume": 72250913.94999999, "trades": 72068, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "ouyi", "volume": 17191217.33, "vip": true}, {"rank": 2, "name": "joshua", "volume": 13537095.74, "vip": true}, {"rank": 3, "name": "luxee", "volume": 6058024.02, "vip": true}, {"rank": 4, "name": "kkiller", "volume": 5383798.86, "vip": true}, {"rank": 5, "name": "0xdarkkk", "volume": 3861321.01, "vip": true}]}, {"symbol": "KALSHI", "name": "Kalshi PreStocks", "logo": "https://www.prestocks.com/logos/kalshi.png", "address": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua", "volume": 71077014.96000005, "trades": 80073, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "kkiller", "volume": 26598232.3, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 8361651.77, "vip": true}, {"rank": 3, "name": "luxee", "volume": 5524947.74, "vip": true}, {"rank": 4, "name": "hawkz", "volume": 4697062.42, "vip": true}, {"rank": 5, "name": "joshua", "volume": 3016520.65, "vip": true}]}, {"symbol": "ANTHROPIC", "name": "Anthropic PreStocks", "logo": "https://www.prestocks.com/logos/anthropic.png", "address": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw", "volume": 22248539.150000002, "trades": 47695, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "kkiller", "volume": 3330408.22, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 1910434.27, "vip": true}, {"rank": 3, "name": "0xdarkkk", "volume": 1419336.08, "vip": true}, {"rank": 4, "name": "michel", "volume": 1369216.87, "vip": true}, {"rank": 5, "name": "hanzzel", "volume": 1185917.02, "vip": true}]}, {"symbol": "ANDURIL", "name": "Anduril PreStocks", "logo": "https://www.prestocks.com/logos/anduril.png", "address": "PresTj4Yc2bAR197Er7wz4UUKSfqt6FryBEdAriBoQB", "volume": 18406312.179999992, "trades": 71036, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "profitseeker", "volume": 3173734.9, "vip": true}, {"rank": 2, "name": "kkiller", "volume": 2550395.87, "vip": true}, {"rank": 3, "name": "luxee", "volume": 2106982.79, "vip": true}, {"rank": 4, "name": "0xdarkkk", "volume": 1659717.86, "vip": true}, {"rank": 5, "name": "ouyi", "volume": 1503656.68, "vip": true}]}, {"symbol": "NEURALINK", "name": "Neuralink PreStocks", "logo": "https://www.prestocks.com/logos/neuralink.png", "address": "PrekqLJvJ3qVdXmBGDiexvwUTF4rLFDa6HWS4HJbw9S", "volume": 14176345.370000008, "trades": 39852, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "joshua", "volume": 1552063.39, "vip": true}, {"rank": 2, "name": "0xdarkkk", "volume": 1457324.1, "vip": true}, {"rank": 3, "name": "Pajero5567", "volume": 1235320.38, "vip": true}, {"rank": 4, "name": "nujjid", "volume": 891756.4, "vip": false}, {"rank": 5, "name": "KpsA", "volume": 851566.85, "vip": false}]}, {"symbol": "OPENAI", "name": "OpenAI PreStocks", "logo": "https://www.prestocks.com/logos/openai.png", "address": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", "volume": 10041545.350000001, "trades": 32615, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "alkan", "volume": 2217157.55, "vip": true}, {"rank": 2, "name": "BTC100W_usdt", "volume": 1054453.06, "vip": true}, {"rank": 3, "name": "TiM3", "volume": 767162.57, "vip": true}, {"rank": 4, "name": "hawkz", "volume": 514995.02, "vip": true}, {"rank": 5, "name": "luxee", "volume": 500069.84, "vip": true}]}, {"symbol": "POLYMARKET", "name": "Polymarket PreStocks", "logo": "https://www.prestocks.com/logos/polymarket.png", "address": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP", "volume": 8448817.12, "trades": 30464, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "joshua", "volume": 1524293.13, "vip": true}, {"rank": 2, "name": "0xdarkkk", "volume": 1077812.33, "vip": true}, {"rank": 3, "name": "BTC100W_usdt", "volume": 984548.92, "vip": true}, {"rank": 4, "name": "jewelshah", "volume": 546870.51, "vip": true}, {"rank": 5, "name": "careless_bond", "volume": 407893.03, "vip": true}]}], "grandVolume": 216649488.08000004, "grandTrades": 373803, "tokenCount": 7, "generatedAt": 1781004284164}, "1": {"epoch": 1, "limit": 100, "campaign": 4, "tokens": [{"symbol": "KALSHI", "name": "Kalshi PreStocks", "logo": "https://www.prestocks.com/logos/kalshi.png", "address": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua", "volume": 55002257.35000001, "trades": 35927, "traders": 58, "capped": false, "top": [{"rank": 1, "name": "kkiller", "volume": 26354944.79, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 7637431.61, "vip": true}, {"rank": 3, "name": "hawkz", "volume": 4447535.4, "vip": true}, {"rank": 4, "name": "luxee", "volume": 4374734.02, "vip": true}, {"rank": 5, "name": "thuthuz", "volume": 2732802.18, "vip": true}]}, {"symbol": "SPACEX", "name": "SpaceX PreStocks", "logo": "https://www.prestocks.com/logos/spacex.png", "address": "PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh", "volume": 41220753.36999999, "trades": 20031, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "ouyi", "volume": 12641915.25, "vip": true}, {"rank": 2, "name": "joshua", "volume": 7383130.56, "vip": true}, {"rank": 3, "name": "kkiller", "volume": 2416979.01, "vip": true}, {"rank": 4, "name": "profitseeker", "volume": 2173098.31, "vip": true}, {"rank": 5, "name": "45656346", "volume": 986387.22, "vip": false}]}, {"symbol": "POLYMARKET", "name": "Polymarket PreStocks", "logo": "https://www.prestocks.com/logos/polymarket.png", "address": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP", "volume": 2525784.560000001, "trades": 7957, "traders": 48, "capped": false, "top": [{"rank": 1, "name": "careless_bond", "volume": 407893.03, "vip": true}, {"rank": 2, "name": "jewelshah", "volume": 352077.93, "vip": true}, {"rank": 3, "name": "MbakaEmmanuel1", "volume": 325119.82, "vip": true}, {"rank": 4, "name": "Helembuluk", "volume": 306747.07, "vip": false}, {"rank": 5, "name": "Michyyy", "volume": 274747.32, "vip": true}]}, {"symbol": "ANTHROPIC", "name": "Anthropic PreStocks", "logo": "https://www.prestocks.com/logos/anthropic.png", "address": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw", "volume": 2437417.42, "trades": 6073, "traders": 78, "capped": false, "top": [{"rank": 1, "name": "hawkz", "volume": 273446.14, "vip": true}, {"rank": 2, "name": "vth257", "volume": 250769.51, "vip": true}, {"rank": 3, "name": "Victor007", "volume": 192199.92, "vip": true}, {"rank": 4, "name": "Helembuluk", "volume": 166648.06, "vip": false}, {"rank": 5, "name": "4e4eae33", "volume": 133160.15, "vip": false}]}, {"symbol": "OPENAI", "name": "OpenAI PreStocks", "logo": "https://www.prestocks.com/logos/openai.png", "address": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", "volume": 1218780.9699999995, "trades": 2914, "traders": 57, "capped": false, "top": [{"rank": 1, "name": "Victor007", "volume": 234718.46, "vip": true}, {"rank": 2, "name": "Helembuluk", "volume": 180293.21, "vip": false}, {"rank": 3, "name": "alkan", "volume": 101053.4, "vip": true}, {"rank": 4, "name": "Athena", "volume": 62658.95, "vip": true}, {"rank": 5, "name": "Eutyche", "volume": 60338.71, "vip": true}]}, {"symbol": "ANDURIL", "name": "Anduril PreStocks", "logo": "https://www.prestocks.com/logos/anduril.png", "address": "PresTj4Yc2bAR197Er7wz4UUKSfqt6FryBEdAriBoQB", "volume": 343036.13000000024, "trades": 2902, "traders": 45, "capped": false, "top": [{"rank": 1, "name": "Helembuluk", "volume": 95153.72, "vip": false}, {"rank": 2, "name": "4e4eae33", "volume": 50170.98, "vip": false}, {"rank": 3, "name": "Eutyche", "volume": 43899.0, "vip": true}, {"rank": 4, "name": "1v999", "volume": 38738.83, "vip": true}, {"rank": 5, "name": "Frozeny", "volume": 17954.09, "vip": true}]}, {"symbol": "NEURALINK", "name": "Neuralink PreStocks", "logo": "https://www.prestocks.com/logos/neuralink.png", "address": "PrekqLJvJ3qVdXmBGDiexvwUTF4rLFDa6HWS4HJbw9S", "volume": 188009.76000000004, "trades": 892, "traders": 20, "capped": false, "top": [{"rank": 1, "name": "Helembuluk", "volume": 84710.46, "vip": false}, {"rank": 2, "name": "Eutyche", "volume": 28901.76, "vip": true}, {"rank": 3, "name": "Pajero5567", "volume": 28745.38, "vip": true}, {"rank": 4, "name": "Athena", "volume": 15802.16, "vip": true}, {"rank": 5, "name": "Papker", "volume": 15766.77, "vip": true}]}], "grandVolume": 102936039.56, "grandTrades": 76696, "tokenCount": 7, "generatedAt": 1781004297168}, "2": {"epoch": 2, "limit": 100, "campaign": 4, "tokens": [{"symbol": "ANTHROPIC", "name": "Anthropic PreStocks", "logo": "https://www.prestocks.com/logos/anthropic.png", "address": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw", "volume": 13997555.880000003, "trades": 21063, "traders": 79, "capped": false, "top": [{"rank": 1, "name": "kkiller", "volume": 2793518.68, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 1810255.23, "vip": true}, {"rank": 3, "name": "michel", "volume": 1369216.87, "vip": true}, {"rank": 4, "name": "565ffggjki", "volume": 1026088.04, "vip": false}, {"rank": 5, "name": "0xdarkkk", "volume": 789464.93, "vip": true}]}, {"symbol": "SPACEX", "name": "SpaceX PreStocks", "logo": "https://www.prestocks.com/logos/spacex.png", "address": "PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh", "volume": 7698061.519999996, "trades": 14593, "traders": 92, "capped": false, "top": [{"rank": 1, "name": "joshua", "volume": 1635657.6, "vip": true}, {"rank": 2, "name": "luxee", "volume": 1630286.3, "vip": true}, {"rank": 3, "name": "kkiller", "volume": 1013418.51, "vip": true}, {"rank": 4, "name": "ouyi", "volume": 969654.2, "vip": true}, {"rank": 5, "name": "0xdarkkk", "volume": 356286.11, "vip": true}]}, {"symbol": "ANDURIL", "name": "Anduril PreStocks", "logo": "https://www.prestocks.com/logos/anduril.png", "address": "PresTj4Yc2bAR197Er7wz4UUKSfqt6FryBEdAriBoQB", "volume": 7673742.330000002, "trades": 31234, "traders": 68, "capped": false, "top": [{"rank": 1, "name": "profitseeker", "volume": 2512495.64, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 1130033.83, "vip": true}, {"rank": 3, "name": "0xdarkkk", "volume": 753448.91, "vip": true}, {"rank": 4, "name": "45htghhtr", "volume": 460462.77, "vip": false}, {"rank": 5, "name": "Helembuluk", "volume": 454552.28, "vip": false}]}, {"symbol": "NEURALINK", "name": "Neuralink PreStocks", "logo": "https://www.prestocks.com/logos/neuralink.png", "address": "PrekqLJvJ3qVdXmBGDiexvwUTF4rLFDa6HWS4HJbw9S", "volume": 4462377.35, "trades": 8819, "traders": 42, "capped": false, "top": [{"rank": 1, "name": "Pajero5567", "volume": 867659.69, "vip": true}, {"rank": 2, "name": "3kJF", "volume": 605105.59, "vip": true}, {"rank": 3, "name": "hawkz", "volume": 540638.71, "vip": true}, {"rank": 4, "name": "Extremebaba", "volume": 404601.8, "vip": true}, {"rank": 5, "name": "Helembuluk", "volume": 375416.54, "vip": false}]}, {"symbol": "OPENAI", "name": "OpenAI PreStocks", "logo": "https://www.prestocks.com/logos/openai.png", "address": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", "volume": 4037081.950000001, "trades": 9442, "traders": 49, "capped": false, "top": [{"rank": 1, "name": "alkan", "volume": 975207.21, "vip": true}, {"rank": 2, "name": "TiM3", "volume": 766563.8, "vip": true}, {"rank": 3, "name": "hawkz", "volume": 501778.52, "vip": true}, {"rank": 4, "name": "3kJF", "volume": 423999.63, "vip": true}, {"rank": 5, "name": "Helembuluk", "volume": 284848.8, "vip": false}]}, {"symbol": "KALSHI", "name": "Kalshi PreStocks", "logo": "https://www.prestocks.com/logos/kalshi.png", "address": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua", "volume": 2137708.0900000003, "trades": 9200, "traders": 49, "capped": false, "top": [{"rank": 1, "name": "Gozik", "volume": 400393.43, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 393972.15, "vip": true}, {"rank": 3, "name": "Helembuluk", "volume": 333088.23, "vip": false}, {"rank": 4, "name": "joshua", "volume": 161722.92, "vip": true}, {"rank": 5, "name": "profitseeker", "volume": 153564.72, "vip": true}]}, {"symbol": "POLYMARKET", "name": "Polymarket PreStocks", "logo": "https://www.prestocks.com/logos/polymarket.png", "address": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP", "volume": 295127.4900000001, "trades": 2067, "traders": 26, "capped": false, "top": [{"rank": 1, "name": "jewelshah", "volume": 125123.05, "vip": true}, {"rank": 2, "name": "Helembuluk", "volume": 63447.26, "vip": false}, {"rank": 3, "name": "achyne", "volume": 39198.02, "vip": false}, {"rank": 4, "name": "xinlin7795", "volume": 17041.4, "vip": true}, {"rank": 5, "name": "Extremebaba", "volume": 15410.03, "vip": true}]}], "grandVolume": 40301654.61, "grandTrades": 96418, "tokenCount": 7, "generatedAt": 1781004301445}, "3": {"epoch": 3, "limit": 100, "campaign": 4, "tokens": [{"symbol": "SPACEX", "name": "SpaceX PreStocks", "logo": "https://www.prestocks.com/logos/spacex.png", "address": "PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh", "volume": 24183958.419999983, "trades": 39788, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "joshua", "volume": 4518307.58, "vip": true}, {"rank": 2, "name": "ouyi", "volume": 3578181.34, "vip": true}, {"rank": 3, "name": "luxee", "volume": 3458864.33, "vip": true}, {"rank": 4, "name": "0xdarkkk", "volume": 2694732.16, "vip": true}, {"rank": 5, "name": "kkiller", "volume": 1953401.34, "vip": true}]}, {"symbol": "KALSHI", "name": "Kalshi PreStocks", "logo": "https://www.prestocks.com/logos/kalshi.png", "address": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua", "volume": 8976307.369999997, "trades": 19756, "traders": 59, "capped": false, "top": [{"rank": 1, "name": "GVQm...XVpH", "volume": 899024.12, "vip": false}, {"rank": 2, "name": "567rtuyu55", "volume": 887499.83, "vip": false}, {"rank": 3, "name": "di95", "volume": 859262.28, "vip": false}, {"rank": 4, "name": "0xdarkkk", "volume": 838598.34, "vip": true}, {"rank": 5, "name": "67888io", "volume": 665132.58, "vip": false}]}, {"symbol": "ANDURIL", "name": "Anduril PreStocks", "logo": "https://www.prestocks.com/logos/anduril.png", "address": "PresTj4Yc2bAR197Er7wz4UUKSfqt6FryBEdAriBoQB", "volume": 6614161.219999999, "trades": 23193, "traders": 58, "capped": false, "top": [{"rank": 1, "name": "kkiller", "volume": 2044741.07, "vip": true}, {"rank": 2, "name": "Hs76...Pzk1", "volume": 759900.69, "vip": false}, {"rank": 3, "name": "888888uuu", "volume": 742313.94, "vip": false}, {"rank": 4, "name": "profitseeker", "volume": 588593.43, "vip": true}, {"rank": 5, "name": "2tvp...XG8K", "volume": 457068.77, "vip": true}]}, {"symbol": "NEURALINK", "name": "Neuralink PreStocks", "logo": "https://www.prestocks.com/logos/neuralink.png", "address": "PrekqLJvJ3qVdXmBGDiexvwUTF4rLFDa6HWS4HJbw9S", "volume": 5491010.239999999, "trades": 10971, "traders": 45, "capped": false, "top": [{"rank": 1, "name": "0xdarkkk", "volume": 1327144.18, "vip": true}, {"rank": 2, "name": "nujjid", "volume": 890753.86, "vip": false}, {"rank": 3, "name": "KpsA", "volume": 851566.85, "vip": false}, {"rank": 4, "name": "32122oi", "volume": 541630.47, "vip": false}, {"rank": 5, "name": "ouyi", "volume": 381062.15, "vip": true}]}, {"symbol": "ANTHROPIC", "name": "Anthropic PreStocks", "logo": "https://www.prestocks.com/logos/anthropic.png", "address": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw", "volume": 2756878.0700000003, "trades": 7110, "traders": 100, "capped": true, "top": [{"rank": 1, "name": "4599099", "volume": 466447.57, "vip": false}, {"rank": 2, "name": "YQX4", "volume": 386474.43, "vip": false}, {"rank": 3, "name": "Apaa", "volume": 247583.61, "vip": true}, {"rank": 4, "name": "Helembuluk", "volume": 175628.69, "vip": false}, {"rank": 5, "name": "hawkz", "volume": 152842.92, "vip": true}]}, {"symbol": "OPENAI", "name": "OpenAI PreStocks", "logo": "https://www.prestocks.com/logos/openai.png", "address": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", "volume": 1539402.2399999995, "trades": 7308, "traders": 46, "capped": false, "top": [{"rank": 1, "name": "alkan", "volume": 1078919.1, "vip": true}, {"rank": 2, "name": "MSYLMZ", "volume": 100646.52, "vip": true}, {"rank": 3, "name": "Athena", "volume": 82537.0, "vip": true}, {"rank": 4, "name": "Eutyche", "volume": 65833.5, "vip": true}, {"rank": 5, "name": "Pintiliciuc", "volume": 40461.47, "vip": true}]}, {"symbol": "POLYMARKET", "name": "Polymarket PreStocks", "logo": "https://www.prestocks.com/logos/polymarket.png", "address": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP", "volume": 199747.97999999992, "trades": 1770, "traders": 35, "capped": false, "top": [{"rank": 1, "name": "Pintiliciuc", "volume": 57313.6, "vip": true}, {"rank": 2, "name": "Eutyche", "volume": 30520.21, "vip": true}, {"rank": 3, "name": "achyne", "volume": 23001.25, "vip": false}, {"rank": 4, "name": "jewelshah", "volume": 16558.15, "vip": true}, {"rank": 5, "name": "Helembuluk", "volume": 12956.51, "vip": false}]}], "grandVolume": 49761465.53999998, "grandTrades": 109896, "tokenCount": 7, "generatedAt": 1781004306368}, "4": {"epoch": 4, "limit": 100, "campaign": 4, "tokens": [{"symbol": "POLYMARKET", "name": "Polymarket PreStocks", "logo": "https://www.prestocks.com/logos/polymarket.png", "address": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP", "volume": 5428280.580000002, "trades": 18695, "traders": 51, "capped": false, "top": [{"rank": 1, "name": "joshua", "volume": 1478310.08, "vip": true}, {"rank": 2, "name": "0xdarkkk", "volume": 1077812.33, "vip": true}, {"rank": 3, "name": "BTC100W_usdt", "volume": 984548.92, "vip": true}, {"rank": 4, "name": "yukin", "volume": 358467.35, "vip": true}, {"rank": 5, "name": "kkiller", "volume": 262847.23, "vip": true}]}, {"symbol": "KALSHI", "name": "Kalshi PreStocks", "logo": "https://www.prestocks.com/logos/kalshi.png", "address": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua", "volume": 4962209.600000001, "trades": 15260, "traders": 44, "capped": false, "top": [{"rank": 1, "name": "BTC100W_usdt", "volume": 1723811.97, "vip": true}, {"rank": 2, "name": "wula", "volume": 1086107.65, "vip": false}, {"rank": 3, "name": "luxee", "volume": 1006948.34, "vip": true}, {"rank": 4, "name": "MbakaEmmanuel1", "volume": 208760.0, "vip": true}, {"rank": 5, "name": "Extremebaba", "volume": 202228.43, "vip": true}]}, {"symbol": "NEURALINK", "name": "Neuralink PreStocks", "logo": "https://www.prestocks.com/logos/neuralink.png", "address": "PrekqLJvJ3qVdXmBGDiexvwUTF4rLFDa6HWS4HJbw9S", "volume": 4034948.0399999996, "trades": 19170, "traders": 47, "capped": false, "top": [{"rank": 1, "name": "joshua", "volume": 1297054.55, "vip": true}, {"rank": 2, "name": "BTC100W_usdt", "volume": 744239.31, "vip": true}, {"rank": 3, "name": "onedance", "volume": 530901.09, "vip": false}, {"rank": 4, "name": "wula", "volume": 411397.33, "vip": false}, {"rank": 5, "name": "luxee", "volume": 302421.37, "vip": true}]}, {"symbol": "ANDURIL", "name": "Anduril PreStocks", "logo": "https://www.prestocks.com/logos/anduril.png", "address": "PresTj4Yc2bAR197Er7wz4UUKSfqt6FryBEdAriBoQB", "volume": 3787670.6600000015, "trades": 13914, "traders": 56, "capped": false, "top": [{"rank": 1, "name": "luxee", "volume": 2106978.61, "vip": true}, {"rank": 2, "name": "0xdarkkk", "volume": 465550.1, "vip": true}, {"rank": 3, "name": "joshua", "volume": 184322.59, "vip": true}, {"rank": 4, "name": "Helembuluk", "volume": 142403.7, "vip": false}, {"rank": 5, "name": "Apaa", "volume": 108587.69, "vip": true}]}, {"symbol": "OPENAI", "name": "OpenAI PreStocks", "logo": "https://www.prestocks.com/logos/openai.png", "address": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF", "volume": 3251478.790000001, "trades": 13098, "traders": 54, "capped": false, "top": [{"rank": 1, "name": "BTC100W_usdt", "volume": 1054453.06, "vip": true}, {"rank": 2, "name": "luxee", "volume": 500069.84, "vip": true}, {"rank": 3, "name": "0xdarkkk", "volume": 450115.95, "vip": true}, {"rank": 4, "name": "joshua", "volume": 398951.35, "vip": true}, {"rank": 5, "name": "yukin", "volume": 304457.2, "vip": true}]}, {"symbol": "ANTHROPIC", "name": "Anthropic PreStocks", "logo": "https://www.prestocks.com/logos/anthropic.png", "address": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw", "volume": 3140920.7300000004, "trades": 13958, "traders": 64, "capped": false, "top": [{"rank": 1, "name": "hanzzel", "volume": 1165365.57, "vip": true}, {"rank": 2, "name": "0xdarkkk", "volume": 601677.97, "vip": true}, {"rank": 3, "name": "kkiller", "volume": 501907.35, "vip": true}, {"rank": 4, "name": "yukin", "volume": 147334.27, "vip": true}, {"rank": 5, "name": "BTC100W_usdt", "volume": 106419.54, "vip": true}]}, {"symbol": "SPACEX", "name": "SpaceX PreStocks", "logo": "https://www.prestocks.com/logos/spacex.png", "address": "PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh", "volume": 142319.49999999994, "trades": 173, "traders": 35, "capped": false, "top": [{"rank": 1, "name": "benjaversee", "volume": 110108.67, "vip": true}, {"rank": 2, "name": "bslbsl", "volume": 10271.58, "vip": true}, {"rank": 3, "name": "Eutyche", "volume": 7589.21, "vip": true}, {"rank": 4, "name": "Eymz...5USZ", "volume": 2221.5, "vip": true}, {"rank": 5, "name": "TOMOI", "volume": 1980.6, "vip": false}]}], "grandVolume": 24747827.900000002, "grandTrades": 94268, "tokenCount": 7, "generatedAt": 1781004291297}}/*__END__*/;
+
+// Aktif veri kaynagi — GitHub Pages'te data.json ile guncellenir, yoksa gomulu veri.
+let DATA = SNAPSHOT;
+
+function load(epoch){
+  currentEpoch = epoch;
+  const data = DATA[epoch];
+  if(!data){
+    document.getElementById('bars').innerHTML = '<div class="err">Veri bulunamadı.</div>';
+    return;
+  }
+  const rb = document.getElementById('refresh');
+  rb.classList.add('spin');
+  setTimeout(()=>rb.classList.remove('spin'), 700);
+  render(data);
+}
+
+// GitHub Actions her saat data.json'i gunceller; sayfa acilirken canli surumu cekmeye calisir.
+async function init(){
+  try{
+    const r = await fetch('./data.json?t=' + Date.now(), {cache:'no-store'});
+    if(r.ok){
+      const live = await r.json();
+      if(live && live.all && Array.isArray(live.all.tokens)) DATA = live;
+    }
+  }catch(e){ /* data.json yoksa gomulu veriyle devam */ }
+  load(currentEpoch);
+}
+
+function render(d){
+  const max = Math.max(...d.tokens.map(t=>t.volume), 1);
+
+  // hero
+  countUp(document.getElementById('grandTotal'), d.grandVolume, fmtFull, 1400);
+  const epLabel = d.epoch === 'all' ? 'tüm kampanya' : ('Epoch ' + d.epoch);
+  document.getElementById('grandSub').innerHTML =
+    `${d.tokenCount} PreStocks token · ${epLabel} · her token için ilk ${d.limit} işlemci toplandı`;
+  document.getElementById('hsTokens').textContent = d.tokenCount;
+  countUp(document.getElementById('hsTrades'), d.grandTrades, fmtNum, 1200);
+  document.getElementById('hsTop').textContent = d.tokens[0] ? d.tokens[0].symbol : '—';
+  document.getElementById('chartHint').textContent =
+    (d.epoch==='all'?'Tüm kampanya':'Epoch '+d.epoch) + ' · ilk ' + d.limit + ' işlemci bazında toplam hacim';
+
+  // bars
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+  d.tokens.forEach((t,i)=>{
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="bar-id">
+        <img src="${t.logo}" alt="" onerror="this.style.visibility='hidden'">
+        <div><div class="nm">${t.symbol}</div><div class="ad">${(t.name||'').replace(' PreStocks','')}</div></div>
+      </div>
+      <div class="track"><div class="fill" id="fill${i}"></div></div>
+      <div class="bar-val">${fmtUSD(t.volume)}<small>${(t.volume/d.grandVolume*100).toFixed(1)}%</small></div>`;
+    bars.appendChild(row);
+    requestAnimationFrame(()=>{
+      setTimeout(()=>{ document.getElementById('fill'+i).style.width = (t.volume/max*100)+'%'; }, 80*i+60);
+    });
+  });
+
+  // cards
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  d.tokens.forEach((t,i)=>{
+    const card = document.createElement('div');
+    card.className = 'glass card';
+    const share = (t.volume/d.grandVolume*100);
+    card.innerHTML = `
+      <div class="chead">
+        <img src="${t.logo}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="t"><div class="s">${t.symbol}</div><div class="n">${t.name||''}</div></div>
+        <div class="rk">#${i+1}</div>
+      </div>
+      <div class="vlabel">Toplam Hacim</div>
+      <div class="vol" id="cv${i}">$0</div>
+      <div class="mini"><i id="mi${i}"></i></div>
+      <div class="row"><span>Kampanya payı</span><b class="pct">${share.toFixed(1)}%</b></div>
+      <div class="row"><span>İşlem sayısı</span><b>${fmtNum(t.trades)}</b></div>
+      <div class="row"><span>İşlemci (ilk ${d.limit})</span><b>${t.traders}${t.capped?'+':''}</b></div>
+      <div class="row"><span>Lider</span><b>${t.top[0]?t.top[0].name:'—'}</b></div>`;
+    grid.appendChild(card);
+    setTimeout(()=>{
+      card.classList.add('in');
+      countUp(document.getElementById('cv'+i), t.volume, fmtFull, 1100);
+      document.getElementById('mi'+i).style.width = (t.volume/max*100)+'%';
+    }, 70*i+120);
+  });
+
+  document.getElementById('footNote').innerHTML =
+    'Veri kaynağı: <a href="https://titan.exchange/prestock" target="_blank">titan.exchange</a> · ' +
+    'API ilk 100 işlemci ile sınırlıdır, hacim bu üst dilimin toplamıdır · ' +
+    'Güncellendi: ' + new Date(d.generatedAt).toLocaleString('tr-TR');
+}
+
+// epoch segment
+document.getElementById('epochSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#epochSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  load(b.dataset.epoch);
+});
+document.getElementById('refresh').addEventListener('click', ()=>load(currentEpoch));
+
+init();
+</script>
+</body>
+</html>
