@@ -134,6 +134,20 @@
   .card .row.myrank span{color:var(--accent);font-weight:600}
   .card .row.myrank b{background:linear-gradient(120deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
   .card .row.myrank b.out{background:none;color:var(--muted);font-weight:600}
+  /* tahmini odul satiri */
+  .card .row.myreward span{color:var(--good);font-weight:600}
+  .card .row.myreward b.reward{color:var(--good);font-weight:800;font-size:14px}
+  .card .row.myreward b.out{color:var(--muted);font-weight:600}
+
+  /* tahmini toplam odul ozeti */
+  .reward-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    margin-top:18px;padding:18px 20px;border-radius:16px;
+    background:linear-gradient(140deg,rgba(90,214,160,.16),rgba(110,168,255,.10));
+    border:1px solid rgba(90,214,160,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+  .reward-summary .rk-label{font-size:12px;color:var(--good);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .reward-summary .rk-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .reward-summary .rk-amount{font-size:30px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;
+    background:linear-gradient(120deg,#5ad6a0,#6ea8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
 
   /* cuzdan giris kutusu */
   .walletbox{padding:26px 30px;margin-top:24px}
@@ -217,9 +231,10 @@
     <section class="glass walletbox">
       <h2>Sıralamanı Gör</h2>
       <div class="hint">
-        <b>Titan kullanıcı adını</b> gir — her token kartında "Lider" satırının altında sıralaman görünür.
-        (Kullanıcı adın yoksa cüzdan adresin de çalışır.) Sıralama <b>seçili sekmeye</b> göredir;
-        genel sıran için yukarıdan <b>"Tüm Kampanya"</b> seç. Yalnızca ilk 100 işlemci arasındaysan gösterilir.
+        <b>Titan kullanıcı adını</b> gir — her token kartında sıralaman ve <b>tahmini ödülün</b> görünür.
+        (Kullanıcı adın yoksa cüzdan adresin de çalışır.) Ödül her token için <b>$1.666</b> havuzun
+        <b>ilk 50</b> cüzdana hacme göre orantılı (pro rata) dağıtımıyla hesaplanır. Sıralama/ödül
+        <b>seçili sekmeye</b> göredir — güncel ödül için aktif epoch'u seç.
       </div>
       <div class="wallet-row">
         <input id="walletInput" type="text" autocomplete="off" spellcheck="false"
@@ -227,6 +242,7 @@
         <button id="walletBtn">Göster</button>
         <button id="walletClear" class="ghost">Temizle</button>
       </div>
+      <div id="rewardSummary" class="reward-summary" style="display:none"></div>
     </section>
 
     <footer>
@@ -259,6 +275,11 @@ function countUp(el, to, fmt, dur=1200){
 let currentEpoch = 'all';
 // Kullanicinin girdigi cuzdan adresi / kullanici adi (tarayicida saklanir)
 let userQuery = localStorage.getItem('titanWallet') || '';
+
+// --- Odul ayarlari ---
+// Her token icin havuz (USD), ilk N cuzdana HACME GORE ORANTILI (pro rata) dagitilir.
+// Ornek: bu epoch toplam $10.000, ~6 token, token basina ~$1.666, ilk 50 cuzdan.
+const REWARD = { enabled: true, perToken: 1666, topN: 50 };
 
 // Bir token'in ilk-100 listesinde kullaniciyi bul (kullanici adi veya cuzdan adresi ile).
 // API cuzdan adresini kisaltilmis gosterir (orn: "3cmf...rdan"), o yuzden tam adresi de eslestiririz.
@@ -355,19 +376,34 @@ function render(d){
   // cards
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
+  let totalReward = 0;        // kullanicinin tahmini toplam odulu
+  let rewardTokenCount = 0;   // odul aldigi token sayisi
   d.tokens.forEach((t,i)=>{
     const card = document.createElement('div');
     card.className = 'glass card';
     const share = (t.volume/d.grandVolume*100);
     const board = t.board || t.top || [];
     const leader = board[0] ? board[0].name : '—';
-    // cuzdan girilmisse bu token icin siralama satiri
+    // cuzdan girilmisse bu token icin siralama + tahmini odul satirlari
     let myRow = '';
     if(userQuery){
       const me = findRank(board, userQuery);
-      myRow = me
-        ? `<div class="row myrank"><span>Sıralaman</span><b>#${me.rank} · ${fmtUSD(me.volume)}</b></div>`
-        : `<div class="row myrank"><span>Sıralaman</span><b class="out">İlk 100 dışında</b></div>`;
+      if(me){
+        myRow = `<div class="row myrank"><span>Sıralaman</span><b>#${me.rank} · ${fmtUSD(me.volume)}</b></div>`;
+        if(REWARD.enabled){
+          if(me.rank <= REWARD.topN){
+            // ilk N cuzdanin toplam hacmi -> pro rata pay
+            const topSum = board.slice(0, REWARD.topN).reduce((s,r)=>s+(r.volume||0),0);
+            const reward = topSum > 0 ? REWARD.perToken * me.volume / topSum : 0;
+            totalReward += reward; rewardTokenCount++;
+            myRow += `<div class="row myreward"><span>Tahmini ödül</span><b class="reward">$${reward.toFixed(2)}</b></div>`;
+          }else{
+            myRow += `<div class="row myreward"><span>Tahmini ödül</span><b class="out">İlk ${REWARD.topN} dışında</b></div>`;
+          }
+        }
+      }else{
+        myRow = `<div class="row myrank"><span>Sıralaman</span><b class="out">İlk 100 dışında</b></div>`;
+      }
     }
     card.innerHTML = `
       <div class="chead">
@@ -390,6 +426,23 @@ function render(d){
       document.getElementById('mi'+i).style.width = (t.volume/max*100)+'%';
     }, 70*i+120);
   });
+
+  // tahmini toplam odul ozeti (cuzdan kutusunda)
+  const rs = document.getElementById('rewardSummary');
+  if(rs){
+    if(userQuery && REWARD.enabled){
+      rs.style.display = 'flex';
+      rs.innerHTML =
+        `<div><div class="rk-label">Tahmini Toplam Ödül</div>` +
+        `<div class="rk-sub">${rewardTokenCount} token · ilk ${REWARD.topN} · havuz $${fmtNum(REWARD.perToken)}/token · ` +
+        `${d.epoch==='all'?'tüm kampanya':'Epoch '+d.epoch}</div></div>` +
+        `<div class="rk-amount" id="rkAmount">$0.00</div>`;
+      countUp(document.getElementById('rkAmount'), totalReward, n=>'$'+n.toFixed(2), 1000);
+    }else{
+      rs.style.display = 'none';
+      rs.innerHTML = '';
+    }
+  }
 
   document.getElementById('footNote').innerHTML =
     'Veri kaynağı: <a href="https://titan.exchange/prestock" target="_blank">titan.exchange</a> · ' +
