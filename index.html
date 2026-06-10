@@ -134,20 +134,30 @@
   .card .row.myrank span{color:var(--accent);font-weight:600}
   .card .row.myrank b{background:linear-gradient(120deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
   .card .row.myrank b.out{background:none;color:var(--muted);font-weight:600}
-  /* tahmini odul satiri */
-  .card .row.myreward span{color:var(--good);font-weight:600}
+  /* tahmini odul / maliyet / net satirlari */
+  .card .row.myreward span{color:var(--muted);font-weight:600}
   .card .row.myreward b.reward{color:var(--good);font-weight:800;font-size:14px}
+  .card .row.myreward b.cost{color:#ffb27a;font-weight:700}
+  .card .row.myreward b.net-pos{color:var(--good);font-weight:800}
+  .card .row.myreward b.net-neg{color:#ff8c8c;font-weight:800}
   .card .row.myreward b.out{color:var(--muted);font-weight:600}
 
-  /* tahmini toplam odul ozeti */
-  .reward-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
-    margin-top:18px;padding:18px 20px;border-radius:16px;
+  /* tahmini net kar ozeti */
+  .reward-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    margin-top:18px;padding:18px 22px;border-radius:16px;
     background:linear-gradient(140deg,rgba(90,214,160,.16),rgba(110,168,255,.10));
     border:1px solid rgba(90,214,160,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
   .reward-summary .rk-label{font-size:12px;color:var(--good);font-weight:700;text-transform:uppercase;letter-spacing:1px}
   .reward-summary .rk-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
-  .reward-summary .rk-amount{font-size:30px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;
-    background:linear-gradient(120deg,#5ad6a0,#6ea8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .reward-summary .rs-figs{display:flex;gap:22px;flex-wrap:wrap;align-items:baseline}
+  .reward-summary .rs-fig{display:flex;flex-direction:column;gap:2px}
+  .reward-summary .rs-fig span{font-size:11px;color:var(--muted);letter-spacing:.3px}
+  .reward-summary .rs-fig b{font-size:16px;font-variant-numeric:tabular-nums}
+  .reward-summary .rs-fig b.reward{color:var(--good)}
+  .reward-summary .rs-fig b.cost{color:#ffb27a}
+  .reward-summary .rs-net{font-size:26px !important;font-weight:800;letter-spacing:-.5px}
+  .reward-summary .net-pos{color:#5ad6a0}
+  .reward-summary .net-neg{color:#ff8c8c}
 
   /* cuzdan giris kutusu */
   .walletbox{padding:26px 30px;margin-top:24px}
@@ -231,10 +241,10 @@
     <section class="glass walletbox">
       <h2>Sıralamanı Gör</h2>
       <div class="hint">
-        <b>Titan kullanıcı adını</b> gir — her token kartında sıralaman ve <b>tahmini ödülün</b> görünür.
-        (Kullanıcı adın yoksa cüzdan adresin de çalışır.) Ödül her token için <b>$1.666</b> havuzun
-        <b>ilk 50</b> cüzdana hacme göre orantılı (pro rata) dağıtımıyla hesaplanır. Sıralama/ödül
-        <b>seçili sekmeye</b> göredir — güncel ödül için aktif epoch'u seç.
+        <b>Titan kullanıcı adını</b> gir — her token kartında sıralaman görünür.
+        (Kullanıcı adın yoksa cüzdan adresin de çalışır.) <b>Ödül/maliyet/net</b> hesabı yalnızca
+        <b>Epoch 4</b> sekmesinde gösterilir: her token için <b>$1.666</b> havuz, <b>ilk 50</b> cüzdana
+        hacme göre orantılı (pro rata); maliyet <b>%0.01</b>, başa baş hacmi <b>~$16.7M</b>.
       </div>
       <div class="wallet-row">
         <input id="walletInput" type="text" autocomplete="off" spellcheck="false"
@@ -278,8 +288,30 @@ let userQuery = localStorage.getItem('titanWallet') || '';
 
 // --- Odul ayarlari ---
 // Her token icin havuz (USD), ilk N cuzdana HACME GORE ORANTILI (pro rata) dagitilir.
-// Ornek: bu epoch toplam $10.000, ~6 token, token basina ~$1.666, ilk 50 cuzdan.
-const REWARD = { enabled: true, perToken: 1666, topN: 50 };
+// Bu epoch toplam ~$10.000, 6 token (SPACEX haric), token basina $1.666, ilk 50 cuzdan.
+// Odul SADECE secili epoch onlyEpoch ise gosterilir. costRate = islem maliyeti (%0.01).
+// Basa bas hacmi = perToken / costRate (~$16.666M): fee'lerin tum havuza esit oldugu hacim.
+const REWARD = { enabled: true, perToken: 1666, topN: 50, costRate: 0.0001, onlyEpoch: 4 };
+const BREAK_EVEN = REWARD.perToken / REWARD.costRate; // ~16.66M
+
+// Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
+function applyRules(data){
+  if(!data || data.epoch !== REWARD.onlyEpoch) return data;
+  let tokens = (data.tokens || [])
+    .filter(t => (t.symbol||'').toUpperCase() !== 'SPACEX')
+    .map(t => {
+      const board = (t.board || t.top || []).slice(0, REWARD.topN);
+      const volume = board.reduce((s,r)=>s+(r.volume||0),0);
+      return Object.assign({}, t, { board, traders: board.length, capped:false, volume });
+    });
+  tokens.sort((a,b)=>b.volume-a.volume);
+  return Object.assign({}, data, {
+    tokens,
+    tokenCount: tokens.length,
+    limit: REWARD.topN,
+    grandVolume: tokens.reduce((s,t)=>s+t.volume,0),
+  });
+}
 
 // Bir token'in ilk-100 listesinde kullaniciyi bul (kullanici adi veya cuzdan adresi ile).
 // API cuzdan adresini kisaltilmis gosterir (orn: "3cmf...rdan"), o yuzden tam adresi de eslestiririz.
@@ -309,7 +341,7 @@ let DATA = SNAPSHOT;
 
 function load(epoch){
   currentEpoch = epoch;
-  const data = DATA[epoch];
+  const data = applyRules(DATA[epoch]);
   if(!data){
     document.getElementById('bars').innerHTML = '<div class="err">Veri bulunamadı.</div>';
     return;
@@ -377,32 +409,37 @@ function render(d){
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
   let totalReward = 0;        // kullanicinin tahmini toplam odulu
+  let totalCost = 0;          // tahmini toplam maliyet (fee)
   let rewardTokenCount = 0;   // odul aldigi token sayisi
+  const showReward = REWARD.enabled && d.epoch === REWARD.onlyEpoch; // sadece Epoch 4
   d.tokens.forEach((t,i)=>{
     const card = document.createElement('div');
     card.className = 'glass card';
     const share = (t.volume/d.grandVolume*100);
     const board = t.board || t.top || [];
     const leader = board[0] ? board[0].name : '—';
-    // cuzdan girilmisse bu token icin siralama + tahmini odul satirlari
+    // break-even bilgi satiri (sadece odul gosterilen epoch)
+    let beRow = showReward
+      ? `<div class="row"><span>Başa baş hacmi</span><b>${fmtUSD(BREAK_EVEN)}</b></div>`
+      : '';
+    // cuzdan girilmisse: siralama + (odul epoch'unda) odul/maliyet/net
     let myRow = '';
     if(userQuery){
       const me = findRank(board, userQuery);
       if(me){
         myRow = `<div class="row myrank"><span>Sıralaman</span><b>#${me.rank} · ${fmtUSD(me.volume)}</b></div>`;
-        if(REWARD.enabled){
-          if(me.rank <= REWARD.topN){
-            // ilk N cuzdanin toplam hacmi -> pro rata pay
-            const topSum = board.slice(0, REWARD.topN).reduce((s,r)=>s+(r.volume||0),0);
-            const reward = topSum > 0 ? REWARD.perToken * me.volume / topSum : 0;
-            totalReward += reward; rewardTokenCount++;
-            myRow += `<div class="row myreward"><span>Tahmini ödül</span><b class="reward">$${reward.toFixed(2)}</b></div>`;
-          }else{
-            myRow += `<div class="row myreward"><span>Tahmini ödül</span><b class="out">İlk ${REWARD.topN} dışında</b></div>`;
-          }
+        if(showReward){
+          const topSum = board.reduce((s,r)=>s+(r.volume||0),0); // board zaten ilk 50
+          const reward = topSum > 0 ? REWARD.perToken * me.volume / topSum : 0;
+          const cost = me.volume * REWARD.costRate;
+          const net = reward - cost;
+          totalReward += reward; totalCost += cost; rewardTokenCount++;
+          myRow += `<div class="row myreward"><span>Tahmini ödül</span><b class="reward">$${reward.toFixed(2)}</b></div>`;
+          myRow += `<div class="row myreward"><span>Maliyet (%${(REWARD.costRate*100).toFixed(2)})</span><b class="cost">$${cost.toFixed(2)}</b></div>`;
+          myRow += `<div class="row myreward"><span>Net</span><b class="${net>=0?'net-pos':'net-neg'}">${net>=0?'+':'−'}$${Math.abs(net).toFixed(2)}</b></div>`;
         }
       }else{
-        myRow = `<div class="row myrank"><span>Sıralaman</span><b class="out">İlk 100 dışında</b></div>`;
+        myRow = `<div class="row myrank"><span>Sıralaman</span><b class="out">İlk ${d.limit} dışında</b></div>`;
       }
     }
     card.innerHTML = `
@@ -418,6 +455,7 @@ function render(d){
       <div class="row"><span>İşlem sayısı</span><b>${fmtNum(t.trades)}</b></div>
       <div class="row"><span>İşlemci (ilk ${d.limit})</span><b>${t.traders}${t.capped?'+':''}</b></div>
       <div class="row"><span>Lider</span><b>${leader}</b></div>
+      ${beRow}
       ${myRow}`;
     grid.appendChild(card);
     setTimeout(()=>{
@@ -427,17 +465,21 @@ function render(d){
     }, 70*i+120);
   });
 
-  // tahmini toplam odul ozeti (cuzdan kutusunda)
+  // tahmini toplam odul/maliyet/net ozeti (cuzdan kutusunda) — sadece odul epoch'unda
   const rs = document.getElementById('rewardSummary');
   if(rs){
-    if(userQuery && REWARD.enabled){
+    if(userQuery && showReward){
+      const net = totalReward - totalCost;
       rs.style.display = 'flex';
       rs.innerHTML =
-        `<div><div class="rk-label">Tahmini Toplam Ödül</div>` +
-        `<div class="rk-sub">${rewardTokenCount} token · ilk ${REWARD.topN} · havuz $${fmtNum(REWARD.perToken)}/token · ` +
-        `${d.epoch==='all'?'tüm kampanya':'Epoch '+d.epoch}</div></div>` +
-        `<div class="rk-amount" id="rkAmount">$0.00</div>`;
-      countUp(document.getElementById('rkAmount'), totalReward, n=>'$'+n.toFixed(2), 1000);
+        `<div class="rs-main"><div class="rk-label">Tahmini Net Kâr · Epoch ${d.epoch}</div>` +
+        `<div class="rk-sub">${rewardTokenCount} token · ilk ${REWARD.topN} · havuz $${fmtNum(REWARD.perToken)}/token · maliyet %${(REWARD.costRate*100).toFixed(2)}</div></div>` +
+        `<div class="rs-figs">` +
+          `<div class="rs-fig"><span>Ödül</span><b class="reward">$${totalReward.toFixed(2)}</b></div>` +
+          `<div class="rs-fig"><span>Maliyet</span><b class="cost">$${totalCost.toFixed(2)}</b></div>` +
+          `<div class="rs-fig"><span>Net</span><b class="rs-net ${net>=0?'net-pos':'net-neg'}" id="rkNet">$0.00</b></div>` +
+        `</div>`;
+      countUp(document.getElementById('rkNet'), net, n=>(n>=0?'+':'−')+'$'+Math.abs(n).toFixed(2), 1000);
     }else{
       rs.style.display = 'none';
       rs.innerHTML = '';
