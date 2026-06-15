@@ -88,6 +88,42 @@ async function buildEpoch(epoch, tokens) {
   };
 }
 
+// --- SpaceX (SPCX) kampanyasi: ayri endpoint, tek token, campaign_slug ile ---
+async function buildSpacexEpoch(epoch) {
+  let lb = [];
+  try {
+    const r = await fetch(BASE + "/api/wallet-stats/campaign-leaderboard", {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({
+        campaign_slug: "spacex",
+        epoch,
+        limit: 100,
+        wallet_address: "",
+      }),
+    });
+    if (r.ok) lb = (await r.json()).leaderboard || [];
+  } catch (e) {
+    lb = [];
+  }
+  const volKey = epoch === null ? "user_campaign_volume_usd" : "user_epoch_volume_usd";
+  const trdKey = epoch === null ? "user_campaign_trades" : "user_epoch_trades";
+  return {
+    epoch: epoch === null ? "all" : epoch,
+    volume: lb.reduce((s, r) => s + (Number(r[volKey]) || 0), 0),
+    trades: lb.reduce((s, r) => s + (Number(r[trdKey]) || 0), 0),
+    traders: lb.length,
+    capped: lb.length >= 100,
+    board: lb.map((r) => ({
+      rank: r.rank,
+      name: r.username || r.wallet_address || "—",
+      volume: Math.round((Number(r[volKey]) || 0) * 100) / 100,
+      vip: !!r.is_vip,
+    })),
+    generatedAt: Date.now(),
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   // Vercel kenarinda 60 sn onbellek; arka planda 5 dk tazeleme
@@ -100,6 +136,9 @@ export default async function handler(req, res) {
     EPOCHS.forEach((ep, i) => {
       out[ep === null ? "all" : String(ep)] = built[i];
     });
+    // SpaceX (SPCX) kampanyasi — 2 epoch, paralel cek
+    const sx = await Promise.all([null, 1, 2].map(buildSpacexEpoch));
+    out.spacex = { all: sx[0], "1": sx[1], "2": sx[2] };
     res.status(200).json(out);
   } catch (e) {
     res.status(502).json({ error: String(e && e.message ? e.message : e) });

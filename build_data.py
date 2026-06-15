@@ -84,6 +84,35 @@ def build_epoch(epoch, tokens):
     }
 
 
+def build_spacex_epoch(epoch):
+    """SpaceX (SPCX) kampanyasi — ayri endpoint, tek token."""
+    try:
+        d = post("/api/wallet-stats/campaign-leaderboard", {
+            "campaign_slug": "spacex", "epoch": epoch,
+            "limit": LIMIT, "wallet_address": "",
+        })
+        lb = d.get("leaderboard", []) or []
+    except Exception as e:
+        print(f"  ! spacex epoch={epoch} hata: {e}")
+        lb = []
+    vol_key = "user_campaign_volume_usd" if epoch is None else "user_epoch_volume_usd"
+    trd_key = "user_campaign_trades" if epoch is None else "user_epoch_trades"
+    return {
+        "epoch": "all" if epoch is None else epoch,
+        "volume": sum(float(r.get(vol_key) or 0) for r in lb),
+        "trades": sum(int(r.get(trd_key) or 0) for r in lb),
+        "traders": len(lb),
+        "capped": len(lb) >= LIMIT,
+        "board": [{
+            "rank": r.get("rank"),
+            "name": r.get("username") or r.get("wallet_address") or "—",
+            "volume": round(float(r.get(vol_key) or 0), 2),
+            "vip": bool(r.get("is_vip")),
+        } for r in lb],
+        "generatedAt": int(time.time() * 1000),
+    }
+
+
 def main():
     tokens = get("/api/tokens/prestocks").get("results", [])
     print(f"{len(tokens)} token bulundu.")
@@ -92,6 +121,13 @@ def main():
         key = "all" if ep is None else str(ep)
         data[key] = build_epoch(ep, tokens)
         print(f"  {key:>3}: ${round(data[key]['grandVolume']):,}")
+    # SpaceX (SPCX) kampanyasi
+    data["spacex"] = {
+        "all": build_spacex_epoch(None),
+        "1": build_spacex_epoch(1),
+        "2": build_spacex_epoch(2),
+    }
+    print(f"  spacex/all: ${round(data['spacex']['all']['volume']):,}")
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print("data.json yazildi.")
