@@ -334,7 +334,7 @@ const REWARD = { enabled: true, perToken: 1666, topN: 50, costRate: 0.0001, only
 const BREAK_EVEN = REWARD.perToken / REWARD.costRate; // ~16.66M
 
 // SpaceX (SPCX) kampanyasi — tek token, 2 epoch, $5.000/epoch ($10.000 toplam), ilk 100 pro rata
-const SPACEX = { epochPool: 5000, campaignPool: 10000, topN: 100, costRate: 0.0001, epochs: ['all','1','2'] };
+const SPACEX = { epochPool: 5000, campaignPool: 10000, topN: 100, costRate: 0.0003, epochs: ['all','1','2'] };
 let currentCampaign = 'prestocks';  // 'prestocks' | 'spacex'
 
 // Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
