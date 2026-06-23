@@ -88,15 +88,15 @@ async function buildEpoch(epoch, tokens) {
   };
 }
 
-// --- SpaceX (SPCX) kampanyasi: ayri endpoint, tek token, campaign_slug ile ---
-async function buildSpacexEpoch(epoch) {
+// --- Tek-token kampanyalar (SpaceX, Micron, ...): ayri endpoint, campaign_slug ile ---
+async function buildCampaignEpoch(slug, epoch) {
   let lb = [];
   try {
     const r = await fetch(BASE + "/api/wallet-stats/campaign-leaderboard", {
       method: "POST",
       headers: HEADERS,
       body: JSON.stringify({
-        campaign_slug: "spacex",
+        campaign_slug: slug,
         epoch,
         limit: 100,
         wallet_address: "",
@@ -136,9 +136,15 @@ export default async function handler(req, res) {
     EPOCHS.forEach((ep, i) => {
       out[ep === null ? "all" : String(ep)] = built[i];
     });
-    // SpaceX (SPCX) kampanyasi — 2 epoch, paralel cek
-    const sx = await Promise.all([null, 1, 2].map(buildSpacexEpoch));
-    out.spacex = { all: sx[0], "1": sx[1], "2": sx[2] };
+    // Tek-token kampanyalar (SpaceX, Micron) — her biri 2 epoch, hepsini paralel cek
+    const slugs = ["spacex", "micron"];
+    const camp = await Promise.all(
+      slugs.map(async (slug) => {
+        const eps = await Promise.all([null, 1, 2].map((e) => buildCampaignEpoch(slug, e)));
+        return { all: eps[0], "1": eps[1], "2": eps[2] };
+      })
+    );
+    slugs.forEach((slug, i) => { out[slug] = camp[i]; });
     res.status(200).json(out);
   } catch (e) {
     res.status(502).json({ error: String(e && e.message ? e.message : e) });

@@ -84,11 +84,11 @@ def build_epoch(epoch, tokens):
     }
 
 
-def build_spacex_epoch(epoch):
-    """SpaceX (SPCX) kampanyasi — ayri endpoint, tek token."""
+def build_campaign_epoch(slug, epoch):
+    """Tek-token kampanyalar (SpaceX, Micron) — ayri endpoint, campaign_slug ile."""
     try:
         d = post("/api/wallet-stats/campaign-leaderboard", {
-            "campaign_slug": "spacex", "epoch": epoch,
+            "campaign_slug": slug, "epoch": epoch,
             "limit": LIMIT, "wallet_address": "",
         })
         lb = d.get("leaderboard", []) or []
@@ -121,13 +121,14 @@ def main():
         key = "all" if ep is None else str(ep)
         data[key] = build_epoch(ep, tokens)
         print(f"  {key:>3}: ${round(data[key]['grandVolume']):,}")
-    # SpaceX (SPCX) kampanyasi
-    data["spacex"] = {
-        "all": build_spacex_epoch(None),
-        "1": build_spacex_epoch(1),
-        "2": build_spacex_epoch(2),
-    }
-    print(f"  spacex/all: ${round(data['spacex']['all']['volume']):,}")
+    # Tek-token kampanyalar (SpaceX, Micron)
+    for slug in ("spacex", "micron"):
+        data[slug] = {
+            "all": build_campaign_epoch(slug, None),
+            "1": build_campaign_epoch(slug, 1),
+            "2": build_campaign_epoch(slug, 2),
+        }
+        print(f"  {slug}/all: ${round(data[slug]['all']['volume']):,}")
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print("data.json yazildi.")
