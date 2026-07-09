@@ -337,7 +337,7 @@ let userQuery = localStorage.getItem('titanWallet') || '';
 const REWARD = { enabled: true, perToken: 1666, topN: 50, costRate: 0.0001, onlyEpoch: 4 };
 const BREAK_EVEN = REWARD.perToken / REWARD.costRate; // ~16.66M
 
-// Tek-token/tek-market kampanyalar.
+// Tek-token/tek-market kampanyalar. Oduller epoch bazli hesaplandigi icin epoch listeleri korunur.
 // key = API'deki campaign_slug ve DATA anahtarı. costRate = işlem maliyeti.
 const CAMPAIGNS = {
   spacex: { label:'SpaceX · SPCX', symbol:'SPCX', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },

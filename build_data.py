@@ -27,7 +27,7 @@ LIMIT = 100      # API ust siniri
 EPOCHS = [None, 1, 2, 3, 4]   # None = tum kampanya
 
 # Tek-token/tek-market odul kampanyalari.
-# epoch=None tum kampanya anlamina gelir; bazi yeni kampanyalarda epoch ayrimi yoktur.
+# epoch=None tum kampanya anlamina gelir; oduller epoch bazli hesaplandigi icin epoch listeleri korunur.
 SINGLE_CAMPAIGNS = {
     "spacex": [None, 1, 2],
     "micron": [None, 1, 2],

@@ -136,7 +136,7 @@ export default async function handler(req, res) {
     EPOCHS.forEach((ep, i) => {
       out[ep === null ? "all" : String(ep)] = built[i];
     });
-    // Tek-token/tek-market kampanyalar. Bazilarinda epoch ayrimi yoktur.
+    // Tek-token/tek-market kampanyalar. Oduller epoch bazli hesaplandigi icin epoch listeleri korunur.
     const campaignDefs = {
       spacex: [null, 1, 2],
       micron: [null, 1, 2],
