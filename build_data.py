@@ -26,6 +26,15 @@ CAMPAIGN = 4     # PreStocks kampanya id'si
 LIMIT = 100      # API ust siniri
 EPOCHS = [None, 1, 2, 3, 4]   # None = tum kampanya
 
+# Tek-token/tek-market odul kampanyalari.
+# epoch=None tum kampanya anlamina gelir; bazi yeni kampanyalarda epoch ayrimi yoktur.
+SINGLE_CAMPAIGNS = {
+    "spacex": [None, 1, 2],
+    "micron": [None, 1, 2],
+    "robostrategy": [None, 1, 2],
+    "solstice": [None, 1, 2],
+}
+
 
 def post(path, body):
     req = urllib.request.Request(
@@ -85,7 +94,7 @@ def build_epoch(epoch, tokens):
 
 
 def build_campaign_epoch(slug, epoch):
-    """Tek-token kampanyalar (SpaceX, Micron) — ayri endpoint, campaign_slug ile."""
+    """Tek-token/tek-market kampanyalar — ayri endpoint, campaign_slug ile."""
     try:
         d = post("/api/wallet-stats/campaign-leaderboard", {
             "campaign_slug": slug, "epoch": epoch,
@@ -93,7 +102,7 @@ def build_campaign_epoch(slug, epoch):
         })
         lb = d.get("leaderboard", []) or []
     except Exception as e:
-        print(f"  ! spacex epoch={epoch} hata: {e}")
+        print(f"  ! {slug} epoch={epoch} hata: {e}")
         lb = []
     vol_key = "user_campaign_volume_usd" if epoch is None else "user_epoch_volume_usd"
     trd_key = "user_campaign_trades" if epoch is None else "user_epoch_trades"
@@ -121,13 +130,11 @@ def main():
         key = "all" if ep is None else str(ep)
         data[key] = build_epoch(ep, tokens)
         print(f"  {key:>3}: ${round(data[key]['grandVolume']):,}")
-    # Tek-token kampanyalar (SpaceX, Micron)
-    for slug in ("spacex", "micron"):
-        data[slug] = {
-            "all": build_campaign_epoch(slug, None),
-            "1": build_campaign_epoch(slug, 1),
-            "2": build_campaign_epoch(slug, 2),
-        }
+    # Tek-token/tek-market kampanyalar (SpaceX, Micron, RoboStrategy, Solstice)
+    for slug, epochs in SINGLE_CAMPAIGNS.items():
+        data[slug] = {}
+        for ep in epochs:
+            data[slug]["all" if ep is None else str(ep)] = build_campaign_epoch(slug, ep)
         print(f"  {slug}/all: ${round(data[slug]['all']['volume']):,}")
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))

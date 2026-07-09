@@ -88,7 +88,7 @@ async function buildEpoch(epoch, tokens) {
   };
 }
 
-// --- Tek-token kampanyalar (SpaceX, Micron, ...): ayri endpoint, campaign_slug ile ---
+// --- Tek-token/tek-market kampanyalar (SpaceX, Micron, RoboStrategy, Solstice, ...): ayri endpoint, campaign_slug ile ---
 async function buildCampaignEpoch(slug, epoch) {
   let lb = [];
   try {
@@ -136,15 +136,22 @@ export default async function handler(req, res) {
     EPOCHS.forEach((ep, i) => {
       out[ep === null ? "all" : String(ep)] = built[i];
     });
-    // Tek-token kampanyalar (SpaceX, Micron) — her biri 2 epoch, hepsini paralel cek
-    const slugs = ["spacex", "micron"];
+    // Tek-token/tek-market kampanyalar. Bazilarinda epoch ayrimi yoktur.
+    const campaignDefs = {
+      spacex: [null, 1, 2],
+      micron: [null, 1, 2],
+      robostrategy: [null, 1, 2],
+      solstice: [null, 1, 2],
+    };
     const camp = await Promise.all(
-      slugs.map(async (slug) => {
-        const eps = await Promise.all([null, 1, 2].map((e) => buildCampaignEpoch(slug, e)));
-        return { all: eps[0], "1": eps[1], "2": eps[2] };
+      Object.entries(campaignDefs).map(async ([slug, epochs]) => {
+        const eps = await Promise.all(epochs.map((e) => buildCampaignEpoch(slug, e)));
+        const data = {};
+        epochs.forEach((ep, idx) => { data[ep === null ? "all" : String(ep)] = eps[idx]; });
+        return [slug, data];
       })
     );
-    slugs.forEach((slug, i) => { out[slug] = camp[i]; });
+    camp.forEach(([slug, data]) => { out[slug] = data; });
     res.status(200).json(out);
   } catch (e) {
     res.status(502).json({ error: String(e && e.message ? e.message : e) });

@@ -255,6 +255,8 @@
       <button data-campaign="prestocks" class="active">PreStocks</button>
       <button data-campaign="spacex">SpaceX · SPCX</button>
       <button data-campaign="micron">Micron · MU</button>
+      <button data-campaign="robostrategy">RoboStrategy · BOT</button>
+      <button data-campaign="solstice">Solstice · SLX</button>
     </div>
 
     <section class="glass hero">
@@ -285,6 +287,7 @@
         (Kullanıcı adın yoksa cüzdan adresin de çalışır.)
         <b>PreStocks:</b> ödül yalnızca <b>Epoch 4</b>'te ($1.666/token, ilk 50, pro rata, başa baş ~$16.7M, maliyet %0.01).
         <b>SpaceX (SPCX)</b> ve <b>Micron (MU)</b>: her epoch $5.000 havuz, ilk 100, pro rata, maliyet %0.03.
+        <b>RoboStrategy (BOT)</b>: epoch başına $5.000; <b>Solstice (SLX)</b>: epoch başına $15.000, ilk 100, pro rata, maliyet %0.03.
       </div>
       <div class="wallet-row">
         <input id="walletInput" type="text" autocomplete="off" spellcheck="false"
@@ -334,13 +337,15 @@ let userQuery = localStorage.getItem('titanWallet') || '';
 const REWARD = { enabled: true, perToken: 1666, topN: 50, costRate: 0.0001, onlyEpoch: 4 };
 const BREAK_EVEN = REWARD.perToken / REWARD.costRate; // ~16.66M
 
-// Tek-token kampanyalar (her biri 2 epoch, $5.000/epoch = $10.000, ilk 100 pro rata)
+// Tek-token/tek-market kampanyalar.
 // key = API'deki campaign_slug ve DATA anahtarı. costRate = işlem maliyeti.
 const CAMPAIGNS = {
   spacex: { label:'SpaceX · SPCX', symbol:'SPCX', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
   micron: { label:'Micron · MU',   symbol:'MU',   epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
+  robostrategy: { label:'RoboStrategy · BOT', symbol:'BOT', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
+  solstice: { label:'Solstice · SLX', symbol:'SLX', epochPool:15000, campaignPool:30000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
 };
-let currentCampaign = 'prestocks';  // 'prestocks' | 'spacex' | 'micron'
+let currentCampaign = 'prestocks';  // 'prestocks' veya CAMPAIGNS anahtarlarindan biri
 
 // Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
 function applyRules(data){
@@ -568,6 +573,38 @@ function render(d){
     'Güncellendi: ' + new Date(d.generatedAt).toLocaleString('tr-TR');
 }
 
+// Kampanya "Tüm Kampanya" görünümünde ödülü tek havuz gibi hesaplama.
+// Epoch'lu kampanyalarda ödül her epoch'un kendi havuzunda ayrı hesaplanır, sonra toplanır.
+function campaignRewardSummary(cfg, cd, queryOrName){
+  const epochKeys = (cfg.epochs || []).filter(e => e !== 'all');
+  const isAllWithEpochs = cd.epoch === 'all' && epochKeys.length > 0;
+  const key = isAllWithEpochs ? (queryOrName || '') : null;
+  let reward = 0, volume = 0, matchedEpochs = 0;
+
+  if(isAllWithEpochs){
+    epochKeys.forEach(ep => {
+      const ed = DATA[currentCampaign] && DATA[currentCampaign][ep];
+      const board = ed && (ed.board || []);
+      if(!board || !board.length) return;
+      const me = findRank(board, key);
+      if(!me) return;
+      const sumTop = board.reduce((s,r)=>s+(r.volume||0),0) || 1;
+      reward += cfg.epochPool * (me.volume||0) / sumTop;
+      volume += me.volume || 0;
+      matchedEpochs++;
+    });
+    return { reward, volume, cost: volume * cfg.costRate, matchedEpochs, epochBased: true };
+  }
+
+  const board = cd.board || [];
+  const sumTop = board.reduce((s,r)=>s+(r.volume||0),0) || 1;
+  const me = findRank(board, queryOrName);
+  if(!me) return { reward: 0, volume: 0, cost: 0, matchedEpochs: 0, epochBased: false };
+  reward = cfg.epochPool * (me.volume||0) / sumTop;
+  volume = me.volume || 0;
+  return { reward, volume, cost: volume * cfg.costRate, matchedEpochs: 1, epochBased: false };
+}
+
 // --- Genel tek-token kampanya gorunumu (SpaceX, Micron, ...) ---
 function renderCampaign(cd, cfg){
   document.getElementById('chartPanel').style.display = 'none';
@@ -575,13 +612,14 @@ function renderCampaign(cd, cfg){
   const board = cd.board || [];
   const total = cd.volume || 0;
   const pool = cd.epoch === 'all' ? cfg.campaignPool : cfg.epochPool;
+  const isAllWithEpochs = cd.epoch === 'all' && (cfg.epochs || []).some(e => e !== 'all');
   const sumTop = board.reduce((s,r)=>s+(r.volume||0),0) || 1;
 
   // hero
   countUp(document.getElementById('grandTotal'), total, fmtFull, 1400);
   document.getElementById('grandSub').innerHTML =
     `$${sym} kampanyası · ${cd.epoch==='all'?'tüm kampanya':'Epoch '+cd.epoch} · ` +
-    `ödül havuzu $${fmtNum(pool)} · ilk ${cfg.topN} cüzdana pro rata`;
+    `${isAllWithEpochs ? 'ödül epoch bazlı hesaplanır' : 'ödül havuzu $'+fmtNum(pool)} · ilk ${cfg.topN} cüzdana pro rata`;
   document.getElementById('hsTokens').textContent = cd.traders + (cd.capped?'+':'');
   countUp(document.getElementById('hsTrades'), cd.trades, fmtNum, 1200);
   document.getElementById('hsTop').textContent = sym;
@@ -592,19 +630,20 @@ function renderCampaign(cd, cfg){
   const me = userQuery ? findRank(board, userQuery) : null;
 
   const rowHtml = (r, isMe) => {
-    const reward = pool * (r.volume||0) / sumTop;
+    const calc = isAllWithEpochs ? campaignRewardSummary(cfg, cd, r.name) : { reward: pool * (r.volume||0) / sumTop };
+    const rewardText = isAllWithEpochs && !calc.matchedEpochs ? 'Epoch seç' : '$' + calc.reward.toFixed(2);
     const rkClass = r.rank===1?'top1':r.rank===2?'top2':r.rank===3?'top3':'';
     return `<div class="lb-row${isMe?' me':''}">
       <div class="rk ${rkClass}">${r.rank}</div>
       <div class="nm">${r.name}${r.vip?'<span class="vipdot">VIP</span>':''}</div>
       <div class="vol">${fmtUSD(r.volume)}</div>
-      <div class="rwd">$${reward.toFixed(2)}</div></div>`;
+      <div class="rwd${rewardText==='Epoch seç'?' out':''}">${rewardText}</div></div>`;
   };
 
   let html = `<section class="glass" style="grid-column:1/-1;padding:22px 24px">
     <h2 style="font-size:15px;font-weight:700;margin-bottom:4px">$${sym} Lider Tablosu</h2>
     <div class="hint" style="font-size:12px;color:var(--muted);margin-bottom:16px">
-      ${cd.epoch==='all'?'Tüm kampanya':'Epoch '+cd.epoch} · havuz $${fmtNum(pool)} · ilk ${cfg.topN} cüzdana hacme göre (pro rata) · maliyet %${(cfg.costRate*100).toFixed(2)}</div>
+      ${cd.epoch==='all'?'Tüm kampanya':'Epoch '+cd.epoch} · ${isAllWithEpochs?'ödüller epoch epoch ayrı hesaplanır':'havuz $'+fmtNum(pool)} · ilk ${cfg.topN} cüzdana hacme göre (pro rata) · maliyet %${(cfg.costRate*100).toFixed(2)}</div>
     <div class="lb">
       <div class="lb-head"><div>#</div><div>Cüzdan / Kullanıcı</div><div class="r-right">Hacim</div><div class="r-right c-rwd">Tahmini Ödül</div></div>`;
   board.slice(0,25).forEach(r => html += rowHtml(r, me && r.rank===me.rank));
@@ -617,14 +656,18 @@ function renderCampaign(cd, cfg){
 
   // tahmini net kar ozeti
   const rs = document.getElementById('rewardSummary');
-  if(me){
-    const reward = pool * me.volume / sumTop;
-    const cost = me.volume * cfg.costRate;
+  const userCalc = userQuery ? campaignRewardSummary(cfg, cd, userQuery) : null;
+  if(me || (isAllWithEpochs && userCalc && userCalc.matchedEpochs)){
+    const calc = userCalc || campaignRewardSummary(cfg, cd, userQuery);
+    const reward = calc.reward;
+    const cost = calc.cost;
     const net = reward - cost;
+    const rankText = isAllWithEpochs ? `${calc.matchedEpochs} epoch` : `#${me.rank}`;
+    const poolText = isAllWithEpochs ? `epoch başına havuz $${fmtNum(cfg.epochPool)}` : `havuz $${fmtNum(pool)}`;
     rs.style.display = 'flex';
     rs.innerHTML =
-      `<div class="rs-main"><div class="rk-label">Tahmini Net Kâr · $${sym} ${cd.epoch==='all'?'(kampanya)':'Epoch '+cd.epoch}</div>` +
-      `<div class="rk-sub">#${me.rank} · ilk ${cfg.topN} · havuz $${fmtNum(pool)} · maliyet %${(cfg.costRate*100).toFixed(2)}</div></div>` +
+      `<div class="rs-main"><div class="rk-label">Tahmini Net Kâr · $${sym} ${cd.epoch==='all'?'(epoch toplamı)':'Epoch '+cd.epoch}</div>` +
+      `<div class="rk-sub">${rankText} · ilk ${cfg.topN} · ${poolText} · maliyet %${(cfg.costRate*100).toFixed(2)}</div></div>` +
       `<div class="rs-figs">` +
         `<div class="rs-fig"><span>Ödül</span><b class="reward">$${reward.toFixed(2)}</b></div>` +
         `<div class="rs-fig"><span>Maliyet</span><b class="cost">$${cost.toFixed(2)}</b></div>` +
