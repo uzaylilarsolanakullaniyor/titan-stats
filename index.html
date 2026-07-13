@@ -364,7 +364,9 @@ function campaignConfig(slug){
 }
 function buildCampaignTabs(){
   const seg = document.getElementById('campaignSeg');
-  const slugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
+  const dataSlugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
+  // Tanimli kampanyalari veri dosyasi gecikse veya eski kalsa bile sekmelerde goster.
+  const slugs = [...new Set([...Object.keys(CAMPAIGNS), ...dataSlugs])];
   seg.innerHTML = `<button data-campaign="prestocks"${currentCampaign==='prestocks'?' class="active"':''}>PreStocks</button>` +
     slugs.map(slug => `<button data-campaign="${slug}"${currentCampaign===slug?' class="active"':''}>${campaignConfig(slug).label}</button>`).join('');
 }
