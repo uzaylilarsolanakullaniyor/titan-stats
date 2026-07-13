@@ -161,6 +161,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, "index.html bulunamadi", "text/plain; charset=utf-8")
             return
 
+        if parsed.path == "/data.json":
+            try:
+                with open(os.path.join(HERE, "data.json"), "rb") as f:
+                    self._send(200, f.read())
+            except FileNotFoundError:
+                self._send(404, json.dumps({"error": "data.json not found"}))
+            return
+
         if parsed.path == "/api/data":
             q = parse_qs(parsed.query)
             epoch = q.get("epoch", ["all"])[0]

@@ -365,8 +365,8 @@ function campaignConfig(slug){
 function buildCampaignTabs(){
   const seg = document.getElementById('campaignSeg');
   const slugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
-  seg.innerHTML = '<button data-campaign="prestocks" class="active">PreStocks</button>' +
-    slugs.map(slug => `<button data-campaign="${slug}">${campaignConfig(slug).label}</button>`).join('');
+  seg.innerHTML = `<button data-campaign="prestocks"${currentCampaign==='prestocks'?' class="active"':''}>PreStocks</button>` +
+    slugs.map(slug => `<button data-campaign="${slug}"${currentCampaign===slug?' class="active"':''}>${campaignConfig(slug).label}</button>`).join('');
 }
 
 // Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
@@ -443,9 +443,10 @@ function load(epoch){
 function buildEpochTabs(){
   const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
   const epochs = cfg ? cfg.epochs : ['all','1','2','3','4'];
+  if(!epochs.includes(String(currentEpoch))) currentEpoch = 'all';
   const seg = document.getElementById('epochSeg');
-  seg.innerHTML = epochs.map((e,i)=>
-    `<button data-epoch="${e}"${i===0?' class="active"':''}>${e==='all'?'Tüm Kampanya':'Epoch '+e}</button>`
+  seg.innerHTML = epochs.map(e=>
+    `<button data-epoch="${e}"${String(e)===String(currentEpoch)?' class="active"':''}>${e==='all'?'Tüm Kampanya':'Epoch '+e}</button>`
   ).join('');
 }
 
@@ -462,13 +463,30 @@ async function fetchSource(url, opts){
   }catch(e){}
   return null;
 }
-async function init(){
-  const live = await fetchSource('/api/data?t=' + Date.now(), {cache:'no-store'})
-            || await fetchSource('./data.json?t=' + Date.now(), {cache:'no-store'});
-  if(live) DATA = live;
+let dataPriority = 0; // SNAPSHOT=0, data.json=1, canli API=2
+function acceptData(next, priority){
+  if(!next || priority < dataPriority) return;
+  dataPriority = priority;
+  DATA = next;
+  if(currentCampaign !== 'prestocks' && !DATA[currentCampaign]){
+    currentCampaign = 'prestocks';
+    currentEpoch = 'all';
+  }
   buildCampaignTabs();
   buildEpochTabs();
   load(currentEpoch);
+}
+function init(){
+  // Sayfayi ag yanitini bekletmeden gomulu veriyle hemen ciz.
+  buildCampaignTabs();
+  buildEpochTabs();
+  load(currentEpoch);
+
+  // Statik dosya genellikle aninda gelir; canli API daha sonra sessizce tazeler.
+  fetchSource('./data.json?t=' + Date.now(), {cache:'no-store'})
+    .then(data => acceptData(data, 1));
+  fetchSource('/api/data?t=' + Date.now(), {cache:'no-store'})
+    .then(data => acceptData(data, 2));
 }
 
 function render(d){
