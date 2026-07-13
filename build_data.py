@@ -31,7 +31,8 @@ EPOCHS = [None, 1, 2, 3, 4]   # None = tum kampanya
 SINGLE_CAMPAIGNS = {
     "spacex": [None, 1, 2],
     "micron": [None, 1, 2],
-    "robostrategy": [None],
+    # RoboStrategy odul havuzu iki epoch'a bolunuyor; epoch 1/2'yi de cek.
+    "robostrategy": [None, 1, 2],
     "solstice": [None],
 }
 

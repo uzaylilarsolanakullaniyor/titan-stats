@@ -140,7 +140,8 @@ export default async function handler(req, res) {
     const campaignDefs = {
       spacex: [null, 1, 2],
       micron: [null, 1, 2],
-      robostrategy: [null],
+      // RoboStrategy odul havuzu iki epoch'a bolunuyor; epoch 1/2'yi de cek.
+      robostrategy: [null, 1, 2],
       solstice: [null],
     };
     const camp = await Promise.all(

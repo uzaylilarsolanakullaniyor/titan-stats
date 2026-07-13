@@ -253,10 +253,7 @@
 
     <div class="campaign-switch" id="campaignSeg">
       <button data-campaign="prestocks" class="active">PreStocks</button>
-      <button data-campaign="spacex">SpaceX · SPCX</button>
-      <button data-campaign="micron">Micron · MU</button>
-      <button data-campaign="robostrategy">RoboStrategy · BOT</button>
-      <button data-campaign="solstice">Solstice · SLX</button>
+
     </div>
 
     <section class="glass hero">
@@ -342,10 +339,35 @@ const BREAK_EVEN = REWARD.perToken / REWARD.costRate; // ~16.66M
 const CAMPAIGNS = {
   spacex: { label:'SpaceX · SPCX', symbol:'SPCX', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
   micron: { label:'Micron · MU',   symbol:'MU',   epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
-  robostrategy: { label:'RoboStrategy · BOT', symbol:'BOT', epochPool:10000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all'] },
+  robostrategy: { label:'RoboStrategy · BOT', symbol:'BOT', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
   solstice: { label:'Solstice · SLX', symbol:'SLX', epochPool:30000, campaignPool:30000, topN:100, costRate:0.0003, epochs:['all'] },
 };
 let currentCampaign = 'prestocks';  // 'prestocks' veya CAMPAIGNS anahtarlarindan biri
+
+function titleize(slug){
+  return slug.split(/[-_]+/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+function campaignConfig(slug){
+  if(CAMPAIGNS[slug]) return CAMPAIGNS[slug];
+  const sample = DATA[slug] || {};
+  const epochs = Object.keys(sample).sort((a,b)=>a==='all'?-1:b==='all'?1:Number(a)-Number(b));
+  const label = titleize(slug);
+  return CAMPAIGNS[slug] = {
+    label,
+    symbol: label.split(' ').map(w=>w[0]).join('').slice(0,5).toUpperCase() || slug.toUpperCase(),
+    epochPool: 0,
+    campaignPool: 0,
+    topN: 100,
+    costRate: 0.0003,
+    epochs: epochs.length ? epochs : ['all'],
+  };
+}
+function buildCampaignTabs(){
+  const seg = document.getElementById('campaignSeg');
+  const slugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
+  seg.innerHTML = '<button data-campaign="prestocks" class="active">PreStocks</button>' +
+    slugs.map(slug => `<button data-campaign="${slug}">${campaignConfig(slug).label}</button>`).join('');
+}
 
 // Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
 function applyRules(data){
@@ -398,7 +420,7 @@ function load(epoch){
   rb.classList.add('spin');
   setTimeout(()=>rb.classList.remove('spin'), 700);
 
-  const cfg = CAMPAIGNS[currentCampaign];
+  const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
   if(cfg){
     const cd = (DATA[currentCampaign] && DATA[currentCampaign][epoch]) ? DATA[currentCampaign][epoch] : null;
     if(!cd){
@@ -419,7 +441,7 @@ function load(epoch){
 
 // epoch sekmelerini kampanyaya gore yeniden olustur
 function buildEpochTabs(){
-  const cfg = CAMPAIGNS[currentCampaign];
+  const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
   const epochs = cfg ? cfg.epochs : ['all','1','2','3','4'];
   const seg = document.getElementById('epochSeg');
   seg.innerHTML = epochs.map((e,i)=>
@@ -444,6 +466,8 @@ async function init(){
   const live = await fetchSource('/api/data?t=' + Date.now(), {cache:'no-store'})
             || await fetchSource('./data.json?t=' + Date.now(), {cache:'no-store'});
   if(live) DATA = live;
+  buildCampaignTabs();
+  buildEpochTabs();
   load(currentEpoch);
 }
 
