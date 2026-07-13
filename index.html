@@ -283,8 +283,8 @@
         <b>Titan kullanıcı adını</b> gir — sıralaman ve <b>tahmini ödül/net</b> görünür.
         (Kullanıcı adın yoksa cüzdan adresin de çalışır.)
         <b>PreStocks:</b> ödül yalnızca <b>Epoch 4</b>'te ($1.666/token, ilk 50, pro rata, başa baş ~$16.7M, maliyet %0.01).
-        <b>SpaceX (SPCX)</b> ve <b>Micron (MU)</b>: her epoch $5.000 havuz, ilk 100, pro rata, maliyet %0.03.
-        <b>RoboStrategy (BOT)</b>: $10.000 havuz; <b>Solstice (SLX)</b>: $30.000 havuz, ilk 100, pro rata, maliyet %0.03.
+        <b>Diğer kampanyalar:</b> Titan'da yayınlandıkça otomatik eklenir; havuz ve epoch bilgisi kampanya verisinden alınır,
+        ilk 100 cüzdana pro rata dağıtım ve varsayılan %0.03 maliyet hesabı kullanılır.
       </div>
       <div class="wallet-row">
         <input id="walletInput" type="text" autocomplete="off" spellcheck="false"
@@ -340,7 +340,7 @@ const CAMPAIGNS = {
   spacex: { label:'SpaceX · SPCX', symbol:'SPCX', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
   micron: { label:'Micron · MU',   symbol:'MU',   epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
   robostrategy: { label:'RoboStrategy · BOT', symbol:'BOT', epochPool:5000, campaignPool:10000, topN:100, costRate:0.0003, epochs:['all','1','2'] },
-  solstice: { label:'Solstice · SLX', symbol:'SLX', epochPool:30000, campaignPool:30000, topN:100, costRate:0.0003, epochs:['all'] },
+  solstice: { label:'Solstice · SLX', symbol:'SLX', epochPool:7500, campaignPool:30000, topN:100, costRate:0.0003, epochs:['all','1','2','3','4'] },
 };
 let currentCampaign = 'prestocks';  // 'prestocks' veya CAMPAIGNS anahtarlarindan biri
 
@@ -350,15 +350,17 @@ function titleize(slug){
 function campaignConfig(slug){
   if(CAMPAIGNS[slug]) return CAMPAIGNS[slug];
   const sample = DATA[slug] || {};
-  const epochs = Object.keys(sample).sort((a,b)=>a==='all'?-1:b==='all'?1:Number(a)-Number(b));
+  const meta = sample.meta || {};
+  const epochs = (meta.epochs || Object.keys(sample).filter(k=>k==='all'||/^\d+$/.test(k)))
+    .map(String).sort((a,b)=>a==='all'?-1:b==='all'?1:Number(a)-Number(b));
   const label = titleize(slug);
   return CAMPAIGNS[slug] = {
-    label,
-    symbol: label.split(' ').map(w=>w[0]).join('').slice(0,5).toUpperCase() || slug.toUpperCase(),
-    epochPool: 0,
-    campaignPool: 0,
-    topN: 100,
-    costRate: 0.0003,
+    label: meta.label || label,
+    symbol: meta.symbol || label.split(' ').map(w=>w[0]).join('').slice(0,5).toUpperCase() || slug.toUpperCase(),
+    epochPool: Number(meta.epochPool) || 0,
+    campaignPool: Number(meta.campaignPool) || 0,
+    topN: Number(meta.topN) || 100,
+    costRate: Number(meta.costRate) || 0.0003,
     epochs: epochs.length ? epochs : ['all'],
   };
 }
@@ -467,10 +469,14 @@ async function fetchSource(url, opts){
 }
 let dataPriority = 0; // SNAPSHOT=0, data.json=1, canli API=2
 function acceptData(next, priority){
-  if(!next || priority < dataPriority) return;
-  dataPriority = priority;
-  DATA = next;
-  if(currentCampaign !== 'prestocks' && !DATA[currentCampaign]){
+  if(!next) return;
+  // Dusuk oncelikli kaynak gec gelirse yalnizca eksik kampanyalari tamamlasin.
+  if(priority < dataPriority) DATA = Object.assign({}, next, DATA);
+  else{
+    dataPriority = priority;
+    DATA = Object.assign({}, DATA, next);
+  }
+  if(currentCampaign !== 'prestocks' && !DATA[currentCampaign] && !CAMPAIGNS[currentCampaign]){
     currentCampaign = 'prestocks';
     currentEpoch = 'all';
   }

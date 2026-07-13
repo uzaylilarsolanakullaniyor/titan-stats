@@ -6,12 +6,17 @@ Bu script GitHub Actions tarafindan zamanlanmis sekilde calistirilir
 (ayrica elle de calistirabilirsin: python3 build_data.py).
 Sunucu/baglanti gerektirmez; sadece Python standart kutuphanesi.
 
-Cikti: data.json  ->  {"all": {...}, "1": {...}, "2": {...}, "3": {...}, "4": {...}}
+Cikti: data.json  ->  PreStocks epoch'lari + otomatik kesfedilen kampanyalar ve metadata
 GitHub Pages'teki index.html acilirken bu dosyayi ceker.
 """
 
 import json
+import math
+import os
+import re
 import time
+import unicodedata
+from copy import deepcopy
 import urllib.request
 
 BASE = "https://titan.exchange"
@@ -26,14 +31,29 @@ CAMPAIGN = 4     # PreStocks kampanya id'si
 LIMIT = 100      # API ust siniri
 EPOCHS = [None, 1, 2, 3, 4]   # None = tum kampanya
 
-# Tek-token/tek-market odul kampanyalari.
-# epoch=None tum kampanya anlamina gelir; bazi yeni kampanyalarda epoch ayrimi yoktur.
-SINGLE_CAMPAIGNS = {
-    "spacex": [None, 1, 2],
-    "micron": [None, 1, 2],
-    # RoboStrategy odul havuzu iki epoch'a bolunuyor; epoch 1/2'yi de cek.
-    "robostrategy": [None, 1, 2],
-    "solstice": [None],
+# Titan duyurusu gecici olarak ulasilamazsa kullanilan bilinen kampanyalar.
+# Yeni kampanyalar discover_campaigns() tarafindan otomatik eklenir.
+FALLBACK_SINGLE_CAMPAIGNS = {
+    "spacex": {
+        "epochs": [None, 1, 2],
+        "meta": {"label": "SpaceX · SPCX", "symbol": "SPCX", "epochs": ["all", "1", "2"],
+                 "campaignPool": 10000, "epochPool": 5000, "topN": 100, "costRate": 0.0003},
+    },
+    "micron": {
+        "epochs": [None, 1, 2],
+        "meta": {"label": "Micron · MU", "symbol": "MU", "epochs": ["all", "1", "2"],
+                 "campaignPool": 10000, "epochPool": 5000, "topN": 100, "costRate": 0.0003},
+    },
+    "robostrategy": {
+        "epochs": [None, 1, 2],
+        "meta": {"label": "RoboStrategy · BOT", "symbol": "BOT", "epochs": ["all", "1", "2"],
+                 "campaignPool": 10000, "epochPool": 5000, "topN": 100, "costRate": 0.0003},
+    },
+    "solstice": {
+        "epochs": [None, 1, 2, 3, 4],
+        "meta": {"label": "Solstice · SLX", "symbol": "SLX", "epochs": ["all", "1", "2", "3", "4"],
+                 "campaignPool": 30000, "epochPool": 7500, "topN": 100, "costRate": 0.0003},
+    },
 }
 
 
@@ -49,6 +69,120 @@ def get(path):
     req = urllib.request.Request(BASE + path, headers=HEADERS, method="GET")
     with urllib.request.urlopen(req, timeout=40) as r:
         return json.load(r)
+
+
+def slugify(value):
+    value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "", value)
+
+
+def parse_reward_amount(text):
+    match = re.search(r"\$?([\d,]+(?:\.\d+)?)\s*USDC(?:\s+in)?\s+rewards", text or "", re.I)
+    return float(match.group(1).replace(",", "")) if match else 0
+
+
+def load_saved_campaigns():
+    """Daha once otomatik kesfedilen kampanyalari duyuru bittikten sonra da koru."""
+    if not os.path.exists("data.json"):
+        return {}
+    try:
+        with open("data.json", encoding="utf-8") as source:
+            saved = json.load(source)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for slug, payload in saved.items():
+        if not isinstance(payload, dict) or not isinstance(payload.get("meta"), dict):
+            continue
+        meta = payload["meta"]
+        epochs = [None if str(ep) == "all" else int(ep) for ep in meta.get("epochs", [])]
+        if epochs:
+            out[slug] = {"epochs": epochs, "meta": meta}
+    return out
+
+
+def probe_campaign_slug(candidates):
+    """Titan leaderboard'unda calisan ilk slug'i dondur."""
+    for slug in dict.fromkeys(filter(None, candidates)):
+        try:
+            data = post("/api/wallet-stats/campaign-leaderboard", {
+                "campaign_slug": slug, "epoch": None,
+                "limit": 1, "wallet_address": "",
+            })
+            if isinstance(data.get("leaderboard"), list):
+                return data.get("campaign_slug") or slug
+        except Exception:
+            pass
+    return None
+
+
+def discover_campaigns():
+    """Titan'in aktif duyurularindan yeni hacim kampanyalarini otomatik kesfet."""
+    campaigns = deepcopy(FALLBACK_SINGLE_CAMPAIGNS)
+    campaigns.update(load_saved_campaigns())
+    try:
+        response = post("/api/campaigns/get", {
+            "wallet_address": "",
+            "user_triggers": {"connected": False, "is_vip": False,
+                              "not_vip": False, "no_sponsored_tx": False},
+        })
+        announcements = []
+        for key in ("banner_campaigns", "toast_campaigns", "modal_campaigns"):
+            announcements.extend(response.get(key, []) or [])
+        addresses = list(dict.fromkeys(a.get("output_mint") for a in announcements if a.get("output_mint")))
+        token_rows = post("/api/tokens/multiple", {"addresses": addresses}).get("results", []) if addresses else []
+        tokens = {t.get("address"): t for t in token_rows}
+    except Exception as exc:
+        print(f"  ! kampanya kesfi kullanilamadi, kayitli liste kullaniliyor: {exc}")
+        return campaigns
+
+    seen_ids = set()
+    for item in announcements:
+        campaign_id = item.get("campaign_id") or ""
+        if not campaign_id or campaign_id in seen_ids or not item.get("output_mint"):
+            continue
+        seen_ids.add(campaign_id)
+        token = tokens.get(item.get("output_mint"), {})
+        raw_name = (token.get("name") or "").split(" - ")[0].strip()
+        symbol_match = re.search(r"\$([A-Z][A-Z0-9]*)", (item.get("title") or "") + " " + (item.get("description") or ""))
+        symbol = token.get("symbol") or (symbol_match.group(1) if symbol_match else "")
+        id_base = re.sub(r"-(?:banner|toast|modal)(?:-.*)?$", "", campaign_id, flags=re.I)
+        candidates = [
+            slugify(raw_name),
+            slugify(raw_name.split()[0] if raw_name else ""),
+            slugify(id_base),
+            slugify(symbol),
+        ]
+        known = next((candidate for candidate in candidates if candidate in campaigns), None)
+        slug = known or probe_campaign_slug(candidates)
+        if not slug or slug in campaigns:
+            continue
+
+        start = int(item.get("campaignStartDate") or 0)
+        end = int(item.get("campaignEndDate") or 0)
+        duration = max(0, end - start)
+        epoch_count = max(1, min(12, math.ceil(duration / (7 * 24 * 60 * 60))))
+        total_reward = parse_reward_amount((item.get("title") or "") + " " + (item.get("description") or ""))
+        epochs = [None] + list(range(1, epoch_count + 1))
+        label_name = raw_name or symbol or slug.replace("-", " ").title()
+        campaigns[slug] = {
+            "epochs": epochs,
+            "meta": {
+                "label": f"{label_name} · {symbol}" if symbol else label_name,
+                "symbol": symbol or slug.upper(),
+                "epochs": ["all"] + [str(i) for i in range(1, epoch_count + 1)],
+                "campaignPool": total_reward,
+                "epochPool": total_reward / epoch_count if total_reward else 0,
+                "topN": 100,
+                "costRate": 0.0003,
+                "startTime": start,
+                "endTime": end,
+                "tokenAddress": item.get("output_mint"),
+                "logo": token.get("logoURI") or item.get("image"),
+            },
+        }
+        print(f"  + yeni kampanya kesfedildi: {slug} ({campaigns[slug]['meta']['label']})")
+    return campaigns
 
 
 def build_epoch(epoch, tokens):
@@ -124,6 +258,7 @@ def build_campaign_epoch(slug, epoch):
 
 
 def main():
+    campaign_defs = discover_campaigns()
     tokens = get("/api/tokens/prestocks").get("results", [])
     print(f"{len(tokens)} token bulundu.")
     data = {}
@@ -132,9 +267,9 @@ def main():
         data[key] = build_epoch(ep, tokens)
         print(f"  {key:>3}: ${round(data[key]['grandVolume']):,}")
     # Tek-token/tek-market kampanyalar (SpaceX, Micron, RoboStrategy, Solstice)
-    for slug, epochs in SINGLE_CAMPAIGNS.items():
-        data[slug] = {}
-        for ep in epochs:
+    for slug, config in campaign_defs.items():
+        data[slug] = {"meta": config["meta"]}
+        for ep in config["epochs"]:
             data[slug]["all" if ep is None else str(ep)] = build_campaign_epoch(slug, ep)
         print(f"  {slug}/all: ${round(data[slug]['all']['volume']):,}")
     with open("data.json", "w", encoding="utf-8") as f:

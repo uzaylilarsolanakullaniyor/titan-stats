@@ -26,8 +26,11 @@ animasyonlu, liquid-glass tasarımlı analiz sayfası.
 titan.exchange API'si yalnızca kendi sitesinden (`Origin: titan.exchange`) gelen
 isteklere izin verdiği için tarayıcı **doğrudan** veri çekemez. Bu yüzden:
 
-- **GitHub Actions** her saat başı GitHub'ın sunucusunda çalışır (senin Mac'in kapalı olsa bile),
+- **GitHub Actions** her 15 dakikada bir GitHub'ın sunucusunda çalışır (senin Mac'in kapalı olsa bile),
   `build_data.py` ile API'den güncel veriyi çeker ve `data.json`'ı günceller.
+- Titan yeni bir tek-token ödül kampanyası yayınladığında duyuru/token bilgisi otomatik keşfedilir;
+  slug doğrulanır ve kampanya sekmesi, epoch'ları ve ödül havuzu `data.json`'a eklenir.
+- Daha önce keşfedilmiş kampanyalar duyuru süresi sona erse de sonraki güncellemelerde korunur.
 - GitHub Pages değişikliği otomatik yeniden yayınlar.
 - Sayfa açılırken `data.json`'ı çeker; bulamazsa `index.html` içine gömülü
   yedek veriyle yine de çalışır.
