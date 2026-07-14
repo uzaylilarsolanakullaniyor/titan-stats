@@ -16,8 +16,10 @@ import os
 import re
 import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import urllib.request
+from urllib.parse import urljoin
 
 BASE = "https://titan.exchange"
 HEADERS = {
@@ -71,6 +73,12 @@ def get(path):
         return json.load(r)
 
 
+def get_text(path):
+    req = urllib.request.Request(urljoin(BASE, path), headers=HEADERS, method="GET")
+    with urllib.request.urlopen(req, timeout=40) as r:
+        return r.read().decode("utf-8", "ignore")
+
+
 def slugify(value):
     value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode().lower()
     return re.sub(r"[^a-z0-9]+", "", value)
@@ -116,11 +124,133 @@ def probe_campaign_slug(candidates):
     return None
 
 
+def parse_js_number(value):
+    """Minify edilmis JS sayisini (hex/scientific/production ternary) Python int'e cevir."""
+    value = (value or "").strip()
+    if "?" in value and ":" in value:
+        value = value.rsplit(":", 1)[-1].strip()
+    match = re.match(r"(?:0x[0-9a-f]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)", value, re.I)
+    if not match:
+        return 0
+    token = match.group(0)
+    return int(token, 16) if token.lower().startswith("0x") else int(float(token))
+
+
+def parse_rewards_campaign_bundle(source):
+    """Titan /rewards paketindeki ALL_CAMPAIGNS nesnelerini ayikla."""
+    epoch_pattern = re.compile(
+        r'\{id:(?P<id>\d+),label:"[^"]*",startTime:(?P<start>.*?),endTime:(?P<end>[^}]+)\}'
+    )
+
+    def campaign_objects():
+        marker = re.compile(r'\{id:\d+,slug:"[^"]+",name:"[^"]+"')
+        for found in marker.finditer(source):
+            start = found.start()
+            depth = 0
+            quote = None
+            escaped = False
+            for index in range(start, len(source)):
+                char = source[index]
+                if quote:
+                    if escaped:
+                        escaped = False
+                    elif char == "\\":
+                        escaped = True
+                    elif char == quote:
+                        quote = None
+                    continue
+                if char in ('"', "'"):
+                    quote = char
+                elif char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        yield source[start:index + 1]
+                        break
+
+    def text_field(block, name):
+        found = re.search(rf'{name}:"((?:\\.|[^"])*)"', block)
+        return found.group(1) if found else ""
+
+    def number_field(block, name):
+        found = re.search(rf'{name}:([^,}}]+)', block)
+        return parse_js_number(found.group(1)) if found else 0
+
+    campaigns = []
+    for block in campaign_objects():
+        slug = text_field(block, "slug")
+        name = text_field(block, "name")
+        if not slug or not name:
+            continue
+        start_match = re.search(r'startTime:(.*?),endTime:', block)
+        end_match = re.search(r'endTime:([^,}]+)', block)
+        start = parse_js_number(start_match.group(1)) if start_match else 0
+        end = parse_js_number(end_match.group(1)) if end_match else 0
+        epoch_ranges = {}
+        epochs_match = re.search(r'epochs:\[(.*?)\](?:,tokenAddress|,rewardTokenAddress|})', block, re.S)
+        if epochs_match:
+            for epoch in epoch_pattern.finditer(epochs_match.group(1)):
+                epoch_ranges[str(epoch.group("id"))] = {
+                    "startTime": parse_js_number(epoch.group("start")),
+                    "endTime": parse_js_number(epoch.group("end")),
+                }
+        epoch_ranges["all"] = {"startTime": start, "endTime": end}
+        campaigns.append({
+            "slug": slug,
+            "name": name,
+            "logo": urljoin(BASE, text_field(block, "logoUrl")),
+            "description": bytes(text_field(block, "description"), "utf-8").decode("unicode_escape"),
+            "startTime": start,
+            "endTime": end,
+            "totalEpoch": number_field(block, "totalEpoch"),
+            "totalRewards": number_field(block, "totalRewards"),
+            "epochRewards": number_field(block, "epochRewards"),
+            "epochRanges": epoch_ranges,
+            "tokenAddress": text_field(block, "tokenAddress"),
+        })
+    return campaigns
+
+
+def discover_rewards_page_campaigns():
+    """Rewards sayfasinin kullandigi resmi ALL_CAMPAIGNS yapilandirmasini oku."""
+    page = get_text("/rewards")
+    scripts = sorted(set(
+        path for path in re.findall(r'(?:src|href)="([^"]+)"', page)
+        if ".js" in path
+    ))
+    if not scripts:
+        return []
+
+    def fetch_script(path):
+        try:
+            return get_text(path)
+        except Exception:
+            return ""
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        for source in pool.map(fetch_script, scripts):
+            if "ALL_CAMPAIGNS" not in source or "SLUG_BASED_CAMPAIGNS" not in source:
+                continue
+            campaigns = parse_rewards_campaign_bundle(source)
+            if campaigns:
+                return campaigns
+    return []
+
+
 def discover_campaigns():
-    """Titan'in aktif duyurularindan yeni hacim kampanyalarini otomatik kesfet."""
+    """Titan Rewards yapilandirmasi ve aktif duyurulardan kampanyalari kesfet."""
     campaigns = deepcopy(FALLBACK_SINGLE_CAMPAIGNS)
     campaigns.update(load_saved_campaigns())
     seen_at = int(time.time())
+
+    try:
+        rewards_campaigns = discover_rewards_page_campaigns()
+    except Exception as exc:
+        print(f"  ! rewards kampanya listesi okunamadi: {exc}")
+        rewards_campaigns = []
+    rewards_slugs = {item.get("slug") for item in rewards_campaigns if item.get("slug")}
+
     try:
         response = post("/api/campaigns/get", {
             "wallet_address": "",
@@ -130,12 +260,89 @@ def discover_campaigns():
         announcements = []
         for key in ("banner_campaigns", "toast_campaigns", "modal_campaigns"):
             announcements.extend(response.get(key, []) or [])
-        addresses = list(dict.fromkeys(a.get("output_mint") for a in announcements if a.get("output_mint")))
-        token_rows = post("/api/tokens/multiple", {"addresses": addresses}).get("results", []) if addresses else []
-        tokens = {t.get("address"): t for t in token_rows}
     except Exception as exc:
-        print(f"  ! kampanya kesfi kullanilamadi, kayitli liste kullaniliyor: {exc}")
-        return campaigns
+        print(f"  ! banner kampanya kesfi kullanilamadi: {exc}")
+        announcements = []
+
+    addresses = list(dict.fromkeys(
+        [item.get("tokenAddress") for item in rewards_campaigns if item.get("tokenAddress")] +
+        [item.get("output_mint") for item in announcements if item.get("output_mint")]
+    ))
+    try:
+        token_rows = post("/api/tokens/multiple", {"addresses": addresses}).get("results", []) if addresses else []
+        tokens = {token.get("address"): token for token in token_rows}
+    except Exception as exc:
+        print(f"  ! kampanya token bilgileri alinamadi: {exc}")
+        tokens = {}
+
+    def upsert(slug, raw_name, symbol, start, end, epoch_count, total_reward,
+               epoch_reward=0, epoch_ranges=None, token_address="", logo=""):
+        existing = campaigns.get(slug, {})
+        previous_meta = existing.get("meta", {})
+        epoch_count = max(1, min(12, int(epoch_count or 1)))
+        epochs = [None] + list(range(1, epoch_count + 1))
+        epoch_ranges = deepcopy(epoch_ranges or previous_meta.get("epochRanges", {}))
+        if start and end:
+            epoch_ranges.setdefault("all", {"startTime": start, "endTime": end})
+            epoch_span = (end - start) / epoch_count
+            for epoch_number in range(1, epoch_count + 1):
+                epoch_start = round(start + (epoch_number - 1) * epoch_span)
+                epoch_ranges.setdefault(str(epoch_number), {
+                    "startTime": epoch_start,
+                    "endTime": end if epoch_number == epoch_count else round(start + epoch_number * epoch_span),
+                })
+        label_name = re.sub(r"\s+campaign\s*$", "", raw_name or "", flags=re.I).strip()
+        label_name = label_name or symbol or slug.replace("-", " ").title()
+        derived_label = f"{label_name} · {symbol}" if symbol else label_name
+        campaigns[slug] = {
+            "epochs": epochs,
+            "meta": {
+                **previous_meta,
+                "label": previous_meta.get("label") or derived_label,
+                "symbol": symbol or previous_meta.get("symbol") or slug.upper(),
+                "epochs": ["all"] + [str(i) for i in range(1, epoch_count + 1)],
+                "campaignPool": total_reward or previous_meta.get("campaignPool", 0),
+                "epochPool": epoch_reward or (
+                    total_reward / epoch_count if total_reward else previous_meta.get("epochPool", 0)
+                ),
+                "topN": previous_meta.get("topN", 100),
+                "costRate": previous_meta.get("costRate", 0.0003),
+                "startTime": start or previous_meta.get("startTime", 0),
+                "endTime": end or previous_meta.get("endTime", 0),
+                "lastSeenAt": seen_at,
+                "epochRanges": epoch_ranges,
+                "tokenAddress": token_address or previous_meta.get("tokenAddress", ""),
+                "logo": logo or previous_meta.get("logo", ""),
+            },
+        }
+        action = "kampanya guncellendi" if existing else "yeni kampanya kesfedildi"
+        print(f"  + {action}: {slug} ({campaigns[slug]['meta']['label']})")
+
+    # Rewards sayfasindaki ALL_CAMPAIGNS, banner endpoint'inde bulunmayan
+    # Solstice ve RoboStrategy gibi canli kampanyalari da icerir.
+    for item in rewards_campaigns:
+        slug = item.get("slug") or ""
+        token_address = item.get("tokenAddress") or ""
+        if not slug or (not token_address and slug not in campaigns):
+            continue
+        token = tokens.get(token_address, {})
+        description = item.get("description") or ""
+        symbol_match = re.search(r"\$([A-Z][A-Z0-9]*)", description)
+        previous_symbol = campaigns.get(slug, {}).get("meta", {}).get("symbol", "")
+        symbol = token.get("symbol") or previous_symbol or (symbol_match.group(1) if symbol_match else "")
+        upsert(
+            slug=slug,
+            raw_name=item.get("name") or "",
+            symbol=symbol,
+            start=int(item.get("startTime") or 0),
+            end=int(item.get("endTime") or 0),
+            epoch_count=int(item.get("totalEpoch") or 1),
+            total_reward=float(item.get("totalRewards") or 0),
+            epoch_reward=float(item.get("epochRewards") or 0),
+            epoch_ranges=item.get("epochRanges") or {},
+            token_address=token_address,
+            logo=token.get("logoURI") or item.get("logo") or "",
+        )
 
     seen_ids = set()
     for item in announcements:
@@ -161,50 +368,30 @@ def discover_campaigns():
 
         start = int(item.get("campaignStartDate") or 0)
         end = int(item.get("campaignEndDate") or 0)
-        duration = max(0, end - start)
         existing = campaigns.get(slug, {})
+        # Rewards sayfasi kampanya tarihleri icin asil kaynaktir. Banner ayni
+        # kampanyayi daha kisa bir promosyon penceresiyle gosterebilir.
+        if slug in rewards_slugs:
+            start = int(existing.get("meta", {}).get("startTime") or start)
+            end = int(existing.get("meta", {}).get("endTime") or end)
+        duration = max(0, end - start)
         existing_epochs = existing.get("epochs", [])
         epoch_count = (
             max(1, min(12, math.ceil(duration / (7 * 24 * 60 * 60))))
             if duration else max(1, len([ep for ep in existing_epochs if ep is not None]))
         )
         total_reward = parse_reward_amount((item.get("title") or "") + " " + (item.get("description") or ""))
-        epochs = [None] + list(range(1, epoch_count + 1))
-        label_name = raw_name or symbol or slug.replace("-", " ").title()
-        previous_meta = existing.get("meta", {})
-        epoch_ranges = previous_meta.get("epochRanges", {})
-        if start and end:
-            week = 7 * 24 * 60 * 60
-            epoch_ranges = {"all": {"startTime": start, "endTime": end}}
-            for epoch_number in range(1, epoch_count + 1):
-                epoch_start = start + (epoch_number - 1) * week
-                epoch_ranges[str(epoch_number)] = {
-                    "startTime": epoch_start,
-                    "endTime": min(end, epoch_start + week),
-                }
-        campaigns[slug] = {
-            "epochs": epochs,
-            "meta": {
-                **previous_meta,
-                "label": (f"{label_name} · {symbol}" if symbol else label_name) or previous_meta.get("label"),
-                "symbol": symbol or previous_meta.get("symbol") or slug.upper(),
-                "epochs": ["all"] + [str(i) for i in range(1, epoch_count + 1)],
-                "campaignPool": total_reward or previous_meta.get("campaignPool", 0),
-                "epochPool": (total_reward / epoch_count) if total_reward else previous_meta.get("epochPool", 0),
-                "topN": previous_meta.get("topN", 100),
-                "costRate": previous_meta.get("costRate", 0.0003),
-                "startTime": start or previous_meta.get("startTime", 0),
-                "endTime": end or previous_meta.get("endTime", 0),
-                # Tarih vermeyen duyurular da son gorulme zamanindan itibaren
-                # yedi gun boyunca arayuzde tutulabilir.
-                "lastSeenAt": seen_at,
-                "epochRanges": epoch_ranges,
-                "tokenAddress": item.get("output_mint"),
-                "logo": token.get("logoURI") or item.get("image") or previous_meta.get("logo"),
-            },
-        }
-        action = "kampanya guncellendi" if existing else "yeni kampanya kesfedildi"
-        print(f"  + {action}: {slug} ({campaigns[slug]['meta']['label']})")
+        upsert(
+            slug=slug,
+            raw_name=raw_name,
+            symbol=symbol,
+            start=start,
+            end=end,
+            epoch_count=epoch_count,
+            total_reward=total_reward,
+            token_address=item.get("output_mint") or "",
+            logo=token.get("logoURI") or item.get("image") or "",
+        )
     return campaigns
 
 

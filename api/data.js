@@ -52,6 +52,12 @@ async function get(path) {
   if (!r.ok) throw new Error("GET " + path + " -> " + r.status);
   return r.json();
 }
+async function getText(path) {
+  const url = new URL(path, BASE);
+  const r = await fetch(url, { headers: HEADERS });
+  if (!r.ok) throw new Error("GET " + url.pathname + " -> " + r.status);
+  return r.text();
+}
 
 function slugify(value) {
   return String(value || "")
@@ -64,6 +70,107 @@ function slugify(value) {
 function parseRewardAmount(text) {
   const match = String(text || "").match(/\$?([\d,]+(?:\.\d+)?)\s*USDC(?:\s+in)?\s+rewards/i);
   return match ? Number(match[1].replace(/,/g, "")) : 0;
+}
+
+function parseJsNumber(value) {
+  let source = String(value || "").trim();
+  if (source.includes("?") && source.includes(":")) source = source.split(":").pop().trim();
+  const match = source.match(/^(?:0x[0-9a-f]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)/i);
+  return match ? Number(match[0]) : 0;
+}
+
+function parseRewardsCampaignBundle(source) {
+  const blocks = [];
+  const marker = /\{id:\d+,slug:"[^"]+",name:"[^"]+"/g;
+  let found;
+  while ((found = marker.exec(source))) {
+    const start = found.index;
+    let depth = 0;
+    let quote = "";
+    let escaped = false;
+    for (let index = start; index < source.length; index++) {
+      const char = source[index];
+      if (quote) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = "";
+        continue;
+      }
+      if (char === '"' || char === "'") quote = char;
+      else if (char === "{") depth++;
+      else if (char === "}" && --depth === 0) {
+        blocks.push(source.slice(start, index + 1));
+        break;
+      }
+    }
+  }
+
+  const textField = (block, name) => {
+    const match = block.match(new RegExp(`${name}:"((?:\\\\.|[^"])*)"`));
+    return match ? match[1] : "";
+  };
+  const numberField = (block, name) => {
+    const match = block.match(new RegExp(`${name}:([^,}]+)`));
+    return match ? parseJsNumber(match[1]) : 0;
+  };
+  const decodeJsString = value => {
+    try { return JSON.parse(`"${value}"`); } catch (e) { return value; }
+  };
+
+  return blocks.map(block => {
+    const slug = textField(block, "slug");
+    const name = textField(block, "name");
+    if (!slug || !name) return null;
+    const startMatch = block.match(/startTime:(.*?),endTime:/);
+    const endMatch = block.match(/endTime:([^,}]+)/);
+    const startTime = startMatch ? parseJsNumber(startMatch[1]) : 0;
+    const endTime = endMatch ? parseJsNumber(endMatch[1]) : 0;
+    const epochRanges = {};
+    const epochsMatch = block.match(/epochs:\[(.*?)\](?:,tokenAddress|,rewardTokenAddress|})/s);
+    if (epochsMatch) {
+      const pattern = /\{id:(\d+),label:"[^"]*",startTime:(.*?),endTime:([^}]+)\}/g;
+      let epoch;
+      while ((epoch = pattern.exec(epochsMatch[1]))) {
+        epochRanges[epoch[1]] = {
+          startTime: parseJsNumber(epoch[2]),
+          endTime: parseJsNumber(epoch[3]),
+        };
+      }
+    }
+    epochRanges.all = { startTime, endTime };
+    const logo = textField(block, "logoUrl");
+    return {
+      slug,
+      name,
+      logo: logo ? new URL(logo, BASE).href : "",
+      description: decodeJsString(textField(block, "description")),
+      startTime,
+      endTime,
+      totalEpoch: numberField(block, "totalEpoch"),
+      totalRewards: numberField(block, "totalRewards"),
+      epochRewards: numberField(block, "epochRewards"),
+      epochRanges,
+      tokenAddress: textField(block, "tokenAddress"),
+    };
+  }).filter(Boolean);
+}
+
+async function discoverRewardsPageCampaigns() {
+  const page = await getText("/rewards");
+  const scripts = [...new Set(
+    [...page.matchAll(/(?:src|href)="([^"]+)"/g)]
+      .map(match => match[1])
+      .filter(path => path.includes(".js"))
+  )];
+  const sources = await Promise.all(scripts.map(async path => {
+    try { return await getText(path); } catch (e) { return ""; }
+  }));
+  for (const source of sources) {
+    if (!source.includes("ALL_CAMPAIGNS") || !source.includes("SLUG_BASED_CAMPAIGNS")) continue;
+    const campaigns = parseRewardsCampaignBundle(source);
+    if (campaigns.length) return campaigns;
+  }
+  return [];
 }
 
 async function resolveCampaignSlug(candidates) {
@@ -88,81 +195,145 @@ async function discoverCampaignDefs() {
       meta: { ...cfg.meta },
     }])
   );
+  const seenAt = Math.floor(Date.now() / 1000);
+
+  let rewardsCampaigns = [];
+  try { rewardsCampaigns = await discoverRewardsPageCampaigns(); } catch (e) {}
+  const rewardsSlugs = new Set(rewardsCampaigns.map(item => item.slug).filter(Boolean));
+
+  let announcements = [];
   try {
     const response = await post("/api/campaigns/get", {
       wallet_address: "",
       user_triggers: { connected: false, is_vip: false, not_vip: false, no_sponsored_tx: false },
     });
-    const announcements = [
+    announcements = [
       ...(response.banner_campaigns || []),
       ...(response.toast_campaigns || []),
       ...(response.modal_campaigns || []),
     ];
-    const addresses = [...new Set(announcements.map(item => item.output_mint).filter(Boolean))];
-    const tokenResponse = addresses.length
-      ? await post("/api/tokens/multiple", { addresses })
-      : { results: [] };
-    const tokens = Object.fromEntries((tokenResponse.results || []).map(token => [token.address, token]));
-
-    for (const item of announcements) {
-      if (!item.campaign_id || !item.output_mint) continue;
-      const token = tokens[item.output_mint] || {};
-      const rawName = String(token.name || "").split(" - ")[0].trim();
-      const symbolMatch = `${item.title || ""} ${item.description || ""}`.match(/\$([A-Z][A-Z0-9]*)/);
-      const symbol = token.symbol || (symbolMatch ? symbolMatch[1] : "");
-      const idBase = String(item.campaign_id).replace(/-(?:banner|toast|modal)(?:-.*)?$/i, "");
-      const candidates = [
-        slugify(rawName),
-        slugify(rawName.split(/\s+/)[0]),
-        slugify(idBase),
-        slugify(symbol),
-      ];
-      const known = candidates.find(candidate => campaigns[candidate]);
-      const slug = known || await resolveCampaignSlug(candidates);
-      if (!slug) continue;
-
-      const start = Number(item.campaignStartDate || 0);
-      const end = Number(item.campaignEndDate || 0);
-      const existing = campaigns[slug] || {};
-      const duration = Math.max(0, end - start);
-      const epochCount = duration
-        ? Math.max(1, Math.min(12, Math.ceil(duration / (7 * 24 * 60 * 60))))
-        : Math.max(1, (existing.epochs || []).filter(epoch => epoch !== null).length);
-      const totalReward = parseRewardAmount(`${item.title || ""} ${item.description || ""}`);
-      const labelName = rawName || symbol || slug.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
-      const previousMeta = existing.meta || {};
-      let epochRanges = previousMeta.epochRanges || {};
-      if (start && end) {
-        const week = 7 * 24 * 60 * 60;
-        epochRanges = { all: { startTime: start, endTime: end } };
-        for (let epochNumber = 1; epochNumber <= epochCount; epochNumber++) {
-          const epochStart = start + (epochNumber - 1) * week;
-          epochRanges[String(epochNumber)] = {
-            startTime: epochStart,
-            endTime: Math.min(end, epochStart + week),
-          };
-        }
-      }
-      campaigns[slug] = {
-        epochs: [null, ...Array.from({ length: epochCount }, (_, i) => i + 1)],
-        meta: {
-          ...previousMeta,
-          label: (symbol ? `${labelName} · ${symbol}` : labelName) || previousMeta.label,
-          symbol: symbol || previousMeta.symbol || slug.toUpperCase(),
-          epochs: ["all", ...Array.from({ length: epochCount }, (_, i) => String(i + 1))],
-          campaignPool: totalReward || previousMeta.campaignPool || 0,
-          epochPool: totalReward ? totalReward / epochCount : previousMeta.epochPool || 0,
-          topN: previousMeta.topN || 100,
-          costRate: previousMeta.costRate || 0.0003,
-          startTime: start || previousMeta.startTime || 0,
-          endTime: end || previousMeta.endTime || 0,
-          epochRanges,
-          tokenAddress: item.output_mint,
-          logo: token.logoURI || item.image || previousMeta.logo,
-        },
-      };
-    }
   } catch (e) {}
+
+  const addresses = [...new Set([
+    ...rewardsCampaigns.map(item => item.tokenAddress),
+    ...announcements.map(item => item.output_mint),
+  ].filter(Boolean))];
+  let tokenResponse = { results: [] };
+  try {
+    if (addresses.length) tokenResponse = await post("/api/tokens/multiple", { addresses });
+  } catch (e) {}
+  const tokens = Object.fromEntries((tokenResponse.results || []).map(token => [token.address, token]));
+
+  const upsert = ({ slug, rawName, symbol, start, end, epochCount, totalReward,
+    epochReward = 0, epochRanges = null, tokenAddress = "", logo = "" }) => {
+    const existing = campaigns[slug] || {};
+    const previousMeta = existing.meta || {};
+    const count = Math.max(1, Math.min(12, Number(epochCount) || 1));
+    const ranges = { ...(epochRanges && Object.keys(epochRanges).length
+      ? epochRanges
+      : previousMeta.epochRanges || {}) };
+    if (start && end) {
+      ranges.all ||= { startTime: start, endTime: end };
+      const epochSpan = (end - start) / count;
+      for (let epochNumber = 1; epochNumber <= count; epochNumber++) {
+        const epochStart = Math.round(start + (epochNumber - 1) * epochSpan);
+        ranges[String(epochNumber)] ||= {
+          startTime: epochStart,
+          endTime: epochNumber === count ? end : Math.round(start + epochNumber * epochSpan),
+        };
+      }
+    }
+    const labelName = String(rawName || "").replace(/\s+campaign\s*$/i, "").trim()
+      || symbol || slug.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+    campaigns[slug] = {
+      epochs: [null, ...Array.from({ length: count }, (_, i) => i + 1)],
+      meta: {
+        ...previousMeta,
+        label: previousMeta.label || (symbol ? `${labelName} · ${symbol}` : labelName),
+        symbol: symbol || previousMeta.symbol || slug.toUpperCase(),
+        epochs: ["all", ...Array.from({ length: count }, (_, i) => String(i + 1))],
+        campaignPool: totalReward || previousMeta.campaignPool || 0,
+        epochPool: epochReward || (totalReward ? totalReward / count : previousMeta.epochPool || 0),
+        topN: previousMeta.topN || 100,
+        costRate: previousMeta.costRate || 0.0003,
+        startTime: start || previousMeta.startTime || 0,
+        endTime: end || previousMeta.endTime || 0,
+        lastSeenAt: seenAt,
+        epochRanges: ranges,
+        tokenAddress: tokenAddress || previousMeta.tokenAddress || "",
+        logo: logo || previousMeta.logo || "",
+      },
+    };
+  };
+
+  // Rewards sayfasinin ALL_CAMPAIGNS listesi asil kaynaktir; banner API'sinde
+  // bulunmayan canli kampanyalar da burada yer alir.
+  for (const item of rewardsCampaigns) {
+    const slug = item.slug || "";
+    const tokenAddress = item.tokenAddress || "";
+    if (!slug || (!tokenAddress && !campaigns[slug])) continue;
+    const token = tokens[tokenAddress] || {};
+    const symbolMatch = String(item.description || "").match(/\$([A-Z][A-Z0-9]*)/);
+    const previousSymbol = campaigns[slug]?.meta?.symbol || "";
+    const symbol = token.symbol || previousSymbol || (symbolMatch ? symbolMatch[1] : "");
+    upsert({
+      slug,
+      rawName: item.name,
+      symbol,
+      start: Number(item.startTime) || 0,
+      end: Number(item.endTime) || 0,
+      epochCount: Number(item.totalEpoch) || 1,
+      totalReward: Number(item.totalRewards) || 0,
+      epochReward: Number(item.epochRewards) || 0,
+      epochRanges: item.epochRanges,
+      tokenAddress,
+      logo: token.logoURI || item.logo || "",
+    });
+  }
+
+  for (const item of announcements) {
+    if (!item.campaign_id || !item.output_mint) continue;
+    const token = tokens[item.output_mint] || {};
+    const rawName = String(token.name || "").split(" - ")[0].trim();
+    const symbolMatch = `${item.title || ""} ${item.description || ""}`.match(/\$([A-Z][A-Z0-9]*)/);
+    const symbol = token.symbol || (symbolMatch ? symbolMatch[1] : "");
+    const idBase = String(item.campaign_id).replace(/-(?:banner|toast|modal)(?:-.*)?$/i, "");
+    const candidates = [
+      slugify(rawName),
+      slugify(rawName.split(/\s+/)[0]),
+      slugify(idBase),
+      slugify(symbol),
+    ];
+    const known = candidates.find(candidate => campaigns[candidate]);
+    const slug = known || await resolveCampaignSlug(candidates);
+    if (!slug) continue;
+
+    let start = Number(item.campaignStartDate || 0);
+    let end = Number(item.campaignEndDate || 0);
+    const existing = campaigns[slug] || {};
+    // Banner penceresi kampanyanin asil suresinden kisa olabilir.
+    if (rewardsSlugs.has(slug)) {
+      start = Number(existing.meta?.startTime) || start;
+      end = Number(existing.meta?.endTime) || end;
+    }
+    const duration = Math.max(0, end - start);
+    const epochCount = duration
+      ? Math.max(1, Math.min(12, Math.ceil(duration / (7 * 24 * 60 * 60))))
+      : Math.max(1, (existing.epochs || []).filter(epoch => epoch !== null).length);
+    const totalReward = parseRewardAmount(`${item.title || ""} ${item.description || ""}`);
+    const labelName = rawName || symbol || slug.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+    upsert({
+      slug,
+      rawName: labelName,
+      symbol,
+      start,
+      end,
+      epochCount,
+      totalReward,
+      tokenAddress: item.output_mint,
+      logo: token.logoURI || item.image || "",
+    });
+  }
   return campaigns;
 }
 

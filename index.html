@@ -106,10 +106,13 @@
     background:linear-gradient(120deg,#fff 20%,#b8fff4 58%,#c7d2fe);-webkit-background-clip:text;background-clip:text;color:transparent;
     letter-spacing:-1.5px}
   .hero .sub{color:var(--muted);font-size:13.5px;margin-top:10px;max-width:420px;line-height:1.5}
-  .hero-stats{display:flex;gap:30px;flex-wrap:wrap}
-  .hero-stats .s .v{font-size:26px;font-weight:700}
+  .hero-stats{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;min-height:52px}
+  .hero-stats .s{flex:0 0 112px;min-width:112px}
+  .hero-stats .s .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;min-height:31px}
   .hero-stats .s .k{font-size:12px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
-  .hero-stats .campaign-clock .v{font-size:20px;color:var(--good);font-variant-numeric:tabular-nums}
+  .hero-stats .campaign-clock{flex-basis:286px;min-width:286px;width:286px;contain:layout}
+  .hero-stats .campaign-clock .v{font-size:20px;color:var(--good);font-variant-numeric:tabular-nums;white-space:nowrap;min-height:24px}
+  .hero-stats .campaign-clock .k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hero-stats .campaign-clock.ended .v{color:#ffb27a}
 
   /* ---------- chart ---------- */
@@ -308,7 +311,8 @@
     .wrap{padding:16px 14px 54px}
     .brand h1{font-size:16px}.brand p{font-size:11.5px}
     .hero{padding:26px 22px}.panel,.walletbox{padding:22px 18px}
-    .hero-stats{gap:20px}.hero-stats .s .v{font-size:21px}
+    .hero-stats{gap:18px}.hero-stats .s{flex-basis:94px;min-width:94px}.hero-stats .s .v{font-size:21px;min-height:26px}
+    .hero-stats .campaign-clock{flex-basis:100%;width:100%;min-width:0}
     .refresh-status{display:none}
   }
   @media(prefers-reduced-motion:reduce){
@@ -535,14 +539,36 @@ const fmtNum = (n) => formatNumber(Math.round(n));
 
 // animated count-up
 function countUp(el, to, fmt, dur=1200){
-  const from = 0, t0 = performance.now();
-  function step(t){
-    const p = Math.min((t-t0)/dur, 1);
-    const e = 1 - Math.pow(1-p, 3); // easeOutCubic
-    el.textContent = fmt(from + (to-from)*e);
-    if (p < 1) requestAnimationFrame(step);
+  if(!el) return;
+  if(el._countAnimation) cancelAnimationFrame(el._countAnimation);
+  const target = Number(to) || 0;
+  const storedCurrent = Number(el.dataset.countCurrent);
+  const hasRendered = Number.isFinite(storedCurrent);
+  const from = hasRendered ? storedCurrent : 0;
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  // Ilk acilista animasyon kullan; veri yenilemelerinde mevcut sayilari aninda guncelle.
+  // Boylece arka arkaya gelen kaynaklar komsu tarih alanini hareket ettirmez.
+  if(hasRendered || reduceMotion || from === target){
+    el.dataset.countCurrent = String(target);
+    el.textContent = fmt(target);
+    el._countAnimation = null;
+    return;
   }
-  requestAnimationFrame(step);
+  const startedAt = performance.now();
+  function step(now){
+    const p = Math.min((now-startedAt)/dur, 1);
+    const e = 1 - Math.pow(1-p, 3); // easeOutCubic
+    const current = from + (target-from)*e;
+    el.dataset.countCurrent = String(current);
+    el.textContent = fmt(current);
+    if(p < 1){
+      el._countAnimation = requestAnimationFrame(step);
+    }else{
+      el.dataset.countCurrent = String(target);
+      el._countAnimation = null;
+    }
+  }
+  el._countAnimation = requestAnimationFrame(step);
 }
 
 let currentEpoch = 'all';
@@ -698,17 +724,20 @@ function updateCampaignClock(){
   const label = document.getElementById('kDeadline');
   clock.hidden = false;
   clock.classList.toggle('ended', !!end && now >= end);
+  let nextValue;
   if(start && now < start){
-    value.textContent = t('startsIn',{time:remainingLabel(start-now)});
+    nextValue = t('startsIn',{time:remainingLabel(start-now)});
   }else if(end && now < end){
-    value.textContent = t('remaining',{time:remainingLabel(end-now)});
+    nextValue = t('remaining',{time:remainingLabel(end-now)});
   }else if(end){
-    value.textContent = t('ended');
+    nextValue = t('ended');
   }else{
-    value.textContent = t('active');
+    nextValue = t('active');
   }
-  label.textContent = `${period.name} · ${exactDateLabel(start)} → ${end?exactDateLabel(end):'—'}`;
-  clock.title = label.textContent;
+  const nextLabel = `${period.name} · ${exactDateLabel(start)} → ${end?exactDateLabel(end):'—'}`;
+  if(value.textContent !== nextValue) value.textContent = nextValue;
+  if(label.textContent !== nextLabel) label.textContent = nextLabel;
+  if(clock.title !== nextLabel) clock.title = nextLabel;
 }
 function campaignStatus(cfg, now=Date.now()){
   const start = timestampMs(cfg.startTime);
@@ -904,26 +933,31 @@ function acceptData(next, priority){
     const suspiciousDrop = currentVolume > 0 && nextVolume < currentVolume * .95;
     if(suspiciousDrop && nextAt >= currentAt) rejectedPayloads++;
     const isNewer = nextAt > currentAt;
-    const sameAgeHigherPriority = nextAt === currentAt && priority >= (sourcePriorities[key] || 0);
+    const sameAgeHigherPriority = nextAt === currentAt && priority > (sourcePriorities[key] || 0);
     if(!current || (!suspiciousDrop && (isNewer || sameAgeHigherPriority))){
       DATA[key] = payload;
       sourcePriorities[key] = priority;
       changed = true;
     }else if(payload?.meta){
-      DATA[key] = Object.assign({}, current, {
-        meta: Object.assign({}, current.meta || {}, payload.meta)
-      });
-      changed = true;
+      const mergedMeta = Object.assign({}, current.meta || {}, payload.meta);
+      if(JSON.stringify(mergedMeta) !== JSON.stringify(current.meta || {})){
+        DATA[key] = Object.assign({}, current, {meta:mergedMeta});
+        changed = true;
+      }
     }
   });
   if(currentCampaign !== 'prestocks' && !DATA[currentCampaign] && !CAMPAIGNS[currentCampaign]){
     currentCampaign = 'prestocks';
     currentEpoch = 'all';
   }
-  buildCampaignTabs();
-  buildEpochTabs();
-  load(currentEpoch);
-  checkCampaignNotifications();
+  if(changed){
+    buildCampaignTabs();
+    buildEpochTabs();
+    load(currentEpoch);
+    checkCampaignNotifications();
+  }else{
+    updateDataHealth();
+  }
   return changed;
 }
 
