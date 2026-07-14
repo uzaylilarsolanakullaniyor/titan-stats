@@ -39,6 +39,13 @@ isteklere izin verdiği için tarayıcı **doğrudan** veri çekemez. Bu yüzden
   Vercel canlı kaynağı önbellekten arka planda tazelenir ve gecikirse mevcut sağlam veri korunur.
 - Başlangıç/bitiş bilgisi bulunan kampanyalarda seçili kampanya veya epoch'un kendi tarih aralığı
   ve canlı geri sayımı otomatik görünür.
+- Kampanya sekmeleri `Yakında`, `Aktif`, `Son 24s` ve `Bitti` durumlarını otomatik gösterir.
+- Birden fazla Titan kullanıcı adı/cüzdanı tarayıcıda saklanıp aynı tabloda karşılaştırılabilir.
+- Tek-token kampanyalarında epoch bazlı ödül/maliyet/net dökümü ve hedef ödül hesaplayıcısı bulunur.
+  Hedef ödül ile swap başına USD hacmi girildiğinde gereken ek hacim ve swap sayısı hesaplanır.
+- Tarayıcı bildirimi açılırsa sayfa yeni kampanya başlangıçlarını, epoch bitişlerini ve kampanya
+  bitişlerini bildirir. Bildirim kontrolü sayfa açıkken ve sonraki açılışta çalışır.
+- Veri sağlık göstergesi güncellik yaşını ve engellenen eksik API yanıtlarını gösterir.
 
 > Güncelleme sıklığını değiştirmek için `update-data.yml` içindeki `cron` satırını düzenle.
 > Örn. yarım saatte bir: `*/30 * * * *`. (GitHub cron'u yoğun zamanlarda birkaç dk gecikebilir.)

@@ -181,15 +181,63 @@
   .wallet-row button:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(110,168,255,.42)}
   .wallet-row button.ghost{background:var(--glass);border:1px solid var(--stroke-soft);color:var(--muted);box-shadow:none}
   .wallet-row button.ghost:hover{background:var(--glass-strong);color:var(--txt);transform:none}
+  .watch-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
+  .watchlist{display:flex;gap:7px;flex-wrap:wrap;min-height:32px;align-items:center}
+  .watch-empty{font-size:11.5px;color:var(--muted)}
+  .watch-chip{display:inline-flex;align-items:center;border:1px solid var(--stroke-soft);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.04)}
+  .watch-chip button{appearance:none;border:0;background:transparent;color:var(--muted);font-family:inherit;cursor:pointer;padding:7px 10px;font-size:12px}
+  .watch-chip button.user{font-weight:700}
+  .watch-chip button.remove{padding-left:7px;padding-right:8px;color:#ff8c8c;border-left:1px solid var(--stroke-soft)}
+  .watch-chip.active{border-color:rgba(110,168,255,.55);background:rgba(110,168,255,.14)}
+  .watch-chip.active button.user{color:#d9e7ff}
+  .notify-btn{appearance:none;border:1px solid var(--stroke);background:rgba(255,255,255,.05);color:var(--muted);
+    border-radius:11px;padding:8px 12px;font:600 12px inherit;cursor:pointer;transition:.2s}
+  .notify-btn.on{color:var(--good);border-color:rgba(90,214,160,.45);background:rgba(90,214,160,.10)}
+  .detail-box,.goal-box{margin-top:16px;border:1px solid var(--stroke-soft);background:rgba(255,255,255,.035);border-radius:16px;padding:16px}
+  .detail-title{font-size:12px;font-weight:800;margin-bottom:10px;letter-spacing:.2px}
+  .detail-scroll{overflow-x:auto}
+  .detail-table{width:100%;border-collapse:collapse;min-width:620px;font-size:11.5px}
+  .detail-table th{color:var(--muted);text-align:right;font-weight:600;padding:8px;border-bottom:1px solid var(--stroke-soft)}
+  .detail-table th:first-child,.detail-table td:first-child{text-align:left}
+  .detail-table td{text-align:right;padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.045);font-variant-numeric:tabular-nums}
+  .detail-table tr:last-child td{border-bottom:0}
+  .detail-table .positive{color:var(--good);font-weight:700}
+  .detail-table .negative{color:#ff8c8c;font-weight:700}
+  .goal-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:10px;margin-top:10px}
+  .goal-field label{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+  .goal-field input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--stroke);border-radius:11px;
+    padding:10px 12px;color:var(--txt);font:600 13px inherit;outline:none}
+  .goal-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(110,168,255,.12)}
+  .goal-result{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:9px;margin-top:12px}
+  .goal-stat{padding:11px;border:1px solid var(--stroke-soft);border-radius:12px;background:rgba(255,255,255,.035)}
+  .goal-stat span{display:block;color:var(--muted);font-size:10.5px;margin-bottom:4px}
+  .goal-stat b{font-size:14px;font-variant-numeric:tabular-nums}
+  .goal-note{font-size:11px;color:var(--muted);line-height:1.45;margin-top:10px}
 
   /* kampanya secici */
+  .campaign-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
   .campaign-switch{display:inline-flex;gap:6px;padding:5px;border-radius:16px;margin-bottom:22px;
     background:var(--glass);border:1px solid var(--stroke-soft);backdrop-filter:blur(20px)}
+  .campaign-bar .campaign-switch{margin-bottom:0}
   .campaign-switch button{appearance:none;border:0;background:transparent;color:var(--muted);
     font-size:14px;font-weight:700;padding:10px 22px;border-radius:12px;cursor:pointer;transition:.25s;font-family:inherit}
   .campaign-switch button.active{background:linear-gradient(140deg,var(--accent),var(--accent2));color:#fff;
     box-shadow:0 6px 18px rgba(110,168,255,.4)}
   .campaign-switch button:hover:not(.active){color:var(--txt)}
+  .status-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:7px;font-size:9px;vertical-align:2px;
+    color:var(--muted);background:rgba(255,255,255,.07);border:1px solid var(--stroke-soft)}
+  .status-badge.active{color:var(--good);border-color:rgba(90,214,160,.35);background:rgba(90,214,160,.10)}
+  .status-badge.soon{color:#a9c6ff;border-color:rgba(110,168,255,.35);background:rgba(110,168,255,.10)}
+  .status-badge.urgent{color:#ffcf8c;border-color:rgba(255,178,122,.4);background:rgba(255,178,122,.10)}
+  .status-badge.ended{color:var(--muted)}
+  .data-health{display:flex;align-items:center;gap:7px;border:1px solid var(--stroke-soft);background:var(--glass);padding:8px 11px;border-radius:12px;
+    color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .health-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);box-shadow:0 0 10px currentColor}
+  .data-health.good{color:var(--good)}.data-health.warn{color:#ffb27a}.data-health.bad{color:#ff8c8c}
+
+  .toast-container{position:fixed;right:20px;bottom:20px;z-index:20;display:flex;flex-direction:column;gap:10px;max-width:340px}
+  .toast{padding:13px 15px;border-radius:14px;background:rgba(18,22,36,.94);border:1px solid var(--stroke);box-shadow:var(--shadow);font-size:12px;line-height:1.45}
+  .toast b{display:block;color:var(--txt);margin-bottom:2px}.toast span{color:var(--muted)}
 
   /* SpaceX lider tablosu */
   .lb{display:flex;flex-direction:column;gap:8px}
@@ -214,6 +262,7 @@
   @media(max-width:640px){
     .lb-head,.lb-row{grid-template-columns:40px 1fr 90px;gap:8px;padding:10px 12px}
     .lb-head .c-rwd,.lb-row .rwd{display:none}
+    .goal-grid{grid-template-columns:1fr}.goal-result{grid-template-columns:repeat(2,1fr)}
   }
 
   footer{margin-top:34px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
@@ -261,9 +310,13 @@
       </div>
     </header>
 
-    <div class="campaign-switch" id="campaignSeg">
-      <button data-campaign="prestocks" class="active">PreStocks</button>
-
+    <div class="campaign-bar">
+      <div class="campaign-switch" id="campaignSeg">
+        <button data-campaign="prestocks" class="active">PreStocks</button>
+      </div>
+      <div class="data-health" id="dataHealth" title="Veri kaynağı ve güncellik durumu">
+        <span class="health-dot"></span><span id="dataHealthText">Veri kontrol ediliyor…</span>
+      </div>
     </div>
 
     <section class="glass hero">
@@ -302,16 +355,37 @@
       <div class="wallet-row">
         <input id="walletInput" type="text" autocomplete="off" spellcheck="false"
                placeholder="Titan kullanıcı adı (veya cüzdan adresi)" />
-        <button id="walletBtn">Göster</button>
+        <button id="walletBtn">Takip Et</button>
         <button id="walletClear" class="ghost">Temizle</button>
       </div>
+      <div class="watch-tools">
+        <div class="watchlist" id="watchlist"></div>
+        <button class="notify-btn" id="notifyBtn" type="button">🔔 Bildirimleri Aç</button>
+      </div>
+      <div id="trackedSummary" class="detail-box" style="display:none"></div>
       <div id="rewardSummary" class="reward-summary" style="display:none"></div>
+      <div id="rewardDetail" class="detail-box" style="display:none"></div>
+      <div id="goalCalculator" class="goal-box" style="display:none">
+        <div class="detail-title">Hedef Ödül ve Swap Hesaplayıcı</div>
+        <div class="goal-grid">
+          <div class="goal-field">
+            <label for="targetRewardInput">Hedef toplam ödül (USD)</label>
+            <input id="targetRewardInput" type="number" min="1" step="10" value="100" inputmode="decimal" />
+          </div>
+          <div class="goal-field">
+            <label for="swapAmountInput">Her swap'ın hacmi (USD)</label>
+            <input id="swapAmountInput" type="number" min="1" step="100" value="1000" inputmode="decimal" />
+          </div>
+        </div>
+        <div id="goalResult"></div>
+      </div>
     </section>
 
     <footer>
       <div class="note" id="footNote">Veri kaynağı: titan.exchange/api/wallet-stats/prestock-leaderboard</div>
     </footer>
   </div>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
 <script>
 const fmtUSD = (n) => {
@@ -338,6 +412,26 @@ function countUp(el, to, fmt, dur=1200){
 let currentEpoch = 'all';
 // Kullanicinin girdigi cuzdan adresi / kullanici adi (tarayicida saklanir)
 let userQuery = localStorage.getItem('titanWallet') || '';
+function readStoredJSON(key, fallback){
+  try{
+    const value = JSON.parse(localStorage.getItem(key));
+    return value == null ? fallback : value;
+  }catch(e){ return fallback; }
+}
+function escapeHTML(value){
+  return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[char]);
+}
+let trackedUsers = readStoredJSON('titanTrackedUsers', []);
+if(!Array.isArray(trackedUsers)) trackedUsers = [];
+trackedUsers = trackedUsers.map(value=>String(value).trim()).filter(Boolean).slice(0,8);
+if(userQuery && !trackedUsers.some(value=>value.toLowerCase()===userQuery.toLowerCase())) trackedUsers.unshift(userQuery);
+let targetRewardValue = Number(localStorage.getItem('titanTargetReward')) || 100;
+let swapAmountValue = Number(localStorage.getItem('titanSwapAmount')) || 1000;
+let notificationPrefs = readStoredJSON('titanNotifications', {enabled:false, events:{}});
+if(!notificationPrefs || typeof notificationPrefs !== 'object') notificationPrefs = {enabled:false, events:{}};
+notificationPrefs.events = notificationPrefs.events || {};
 
 // --- Odul ayarlari ---
 // Her token icin havuz (USD), ilk N cuzdana HACME GORE ORANTILI (pro rata) dagitilir.
@@ -453,13 +547,35 @@ function updateCampaignClock(){
   label.textContent = `${period.name} · ${exactDateLabel(start)} → ${end?exactDateLabel(end):'—'}`;
   clock.title = label.textContent;
 }
+function campaignStatus(cfg, now=Date.now()){
+  const start = timestampMs(cfg.startTime);
+  const end = timestampMs(cfg.endTime);
+  if(!start && !end) return {label:'Kayıtlı', className:''};
+  if(start && now < start) return {label:'Yakında', className:'soon'};
+  if(end && now >= end) return {label:'Bitti', className:'ended'};
+  if(end && end-now <= 24*60*60*1000) return {label:'Son 24s', className:'urgent'};
+  return {label:'Aktif', className:'active'};
+}
+let campaignStatusSignature = '';
 function buildCampaignTabs(){
   const seg = document.getElementById('campaignSeg');
   const dataSlugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
   // Tanimli kampanyalari veri dosyasi gecikse veya eski kalsa bile sekmelerde goster.
   const slugs = [...new Set([...Object.keys(CAMPAIGNS), ...dataSlugs])];
   seg.innerHTML = `<button data-campaign="prestocks"${currentCampaign==='prestocks'?' class="active"':''}>PreStocks</button>` +
-    slugs.map(slug => `<button data-campaign="${slug}"${currentCampaign===slug?' class="active"':''}>${campaignConfig(slug).label}</button>`).join('');
+    slugs.map(slug => {
+      const cfg = campaignConfig(slug);
+      const status = campaignStatus(cfg);
+      return `<button data-campaign="${escapeHTML(slug)}"${currentCampaign===slug?' class="active"':''}>` +
+        `${escapeHTML(cfg.label)}<span class="status-badge ${status.className}">${status.label}</span></button>`;
+    }).join('');
+  campaignStatusSignature = slugs.map(slug=>slug+':'+campaignStatus(campaignConfig(slug)).label).join('|');
+}
+function updateCampaignStatusTabs(){
+  const dataSlugs = Object.keys(DATA).filter(k => DATA[k] && DATA[k].all && !Array.isArray(DATA[k].tokens) && k !== 'all');
+  const slugs = [...new Set([...Object.keys(CAMPAIGNS), ...dataSlugs])];
+  const signature = slugs.map(slug=>slug+':'+campaignStatus(campaignConfig(slug)).label).join('|');
+  if(signature !== campaignStatusSignature) buildCampaignTabs();
 }
 
 // Epoch 4'e ozel kurallar: SPACEX'i cikar, ilk 50 ile sinirla, hacmi ona gore hesapla.
@@ -567,6 +683,28 @@ function payloadVolume(payload){
   if(Number.isFinite(Number(payload.volume))) return Number(payload.volume);
   return payload.all ? payloadVolume(payload.all) : 0;
 }
+let rejectedPayloads = 0;
+function visiblePayload(){
+  if(currentCampaign === 'prestocks') return DATA[currentEpoch] || DATA.all;
+  return DATA[currentCampaign]?.[currentEpoch] || DATA[currentCampaign]?.all;
+}
+function updateDataHealth(){
+  const health = document.getElementById('dataHealth');
+  const text = document.getElementById('dataHealthText');
+  if(!health || !text) return;
+  const generatedAt = payloadGeneratedAt(visiblePayload());
+  const ageMs = generatedAt ? Math.max(0, Date.now()-generatedAt) : Infinity;
+  const ageMinutes = Math.floor(ageMs/60000);
+  let label = 'Tarih bilinmiyor', tone = 'bad';
+  if(ageMinutes < 5){ label = 'Sağlıklı · şimdi'; tone = 'good'; }
+  else if(ageMinutes < 20){ label = `Güncel · ${ageMinutes} dk`; tone = 'good'; }
+  else if(ageMinutes < 60){ label = `Gecikmeli · ${ageMinutes} dk`; tone = 'warn'; }
+  else if(Number.isFinite(ageMinutes)){ label = `Eski veri · ${Math.floor(ageMinutes/60)} sa`; tone = 'bad'; }
+  if(rejectedPayloads) label += ` · ${rejectedPayloads} eksik yanıt engellendi`;
+  health.className = 'data-health '+tone;
+  text.textContent = label;
+  health.title = `${lastRefreshLabel} kaynak · ${generatedAt?new Date(generatedAt).toLocaleString('tr-TR'):'zaman yok'}`;
+}
 function acceptData(next, priority){
   if(!next) return false;
   let changed = false;
@@ -578,6 +716,7 @@ function acceptData(next, priority){
     const currentVolume = payloadVolume(current);
     // Gecici API hatasi bos/eksik tablo dondururse ekrandaki saglam veriyi sifirlama.
     const suspiciousDrop = currentVolume > 0 && nextVolume < currentVolume * .95;
+    if(suspiciousDrop && nextAt >= currentAt) rejectedPayloads++;
     const isNewer = nextAt > currentAt;
     const sameAgeHigherPriority = nextAt === currentAt && priority >= (sourcePriorities[key] || 0);
     if(!current || (!suspiciousDrop && (isNewer || sameAgeHigherPriority))){
@@ -598,6 +737,7 @@ function acceptData(next, priority){
   buildCampaignTabs();
   buildEpochTabs();
   load(currentEpoch);
+  checkCampaignNotifications();
   return changed;
 }
 
@@ -664,15 +804,115 @@ function refreshData({manual=false}={}){
   return refreshInFlight;
 }
 
+function showToast(title, body){
+  const container = document.getElementById('toastContainer');
+  if(!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<b>${escapeHTML(title)}</b><span>${escapeHTML(body)}</span>`;
+  container.appendChild(toast);
+  setTimeout(()=>toast.remove(), 7000);
+}
+function saveNotificationPrefs(){
+  localStorage.setItem('titanNotifications', JSON.stringify(notificationPrefs));
+}
+function updateNotifyButton(){
+  const button = document.getElementById('notifyBtn');
+  if(!button) return;
+  const enabled = notificationPrefs.enabled && 'Notification' in window && Notification.permission === 'granted';
+  button.classList.toggle('on', enabled);
+  button.textContent = enabled ? '🔔 Bildirimler Açık' : '🔕 Bildirimleri Aç';
+}
+function notifyUser(title, body, tag){
+  showToast(title, body);
+  if(notificationPrefs.enabled && 'Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification(title, {body, tag}); }catch(e){}
+  }
+}
+function campaignSlugs(){
+  return Object.keys(DATA).filter(key=>DATA[key]?.all && !Array.isArray(DATA[key].tokens) && key!=='all');
+}
+function seedNotificationEvents(){
+  const now = Date.now();
+  campaignSlugs().forEach(slug=>{
+    const cfg = campaignConfig(slug);
+    const start = timestampMs(cfg.startTime);
+    const end = timestampMs(cfg.endTime);
+    if(start && now >= start) notificationPrefs.events[`start:${slug}:${start}`] = true;
+    (cfg.epochs || []).map(String).filter(key=>key!=='all').forEach(key=>{
+      const period = campaignPeriod(cfg,key);
+      if(period.end && now >= period.end) notificationPrefs.events[`epoch-end:${slug}:${key}:${period.end}`] = true;
+    });
+    if(end && now >= end) notificationPrefs.events[`campaign-end:${slug}:${end}`] = true;
+  });
+  saveNotificationPrefs();
+}
+function checkCampaignNotifications(){
+  if(!notificationPrefs.enabled) return;
+  const now = Date.now();
+  let changed = false;
+  campaignSlugs().forEach(slug=>{
+    const cfg = campaignConfig(slug);
+    const start = timestampMs(cfg.startTime);
+    const end = timestampMs(cfg.endTime);
+    const startKey = `start:${slug}:${start}`;
+    if(start && now >= start && !notificationPrefs.events[startKey]){
+      if(!end || now < end) notifyUser('Yeni kampanya başladı', `${cfg.label} şu anda aktif.`, startKey);
+      notificationPrefs.events[startKey] = true; changed = true;
+    }
+    (cfg.epochs || []).map(String).filter(key=>key!=='all').forEach(key=>{
+      const period = campaignPeriod(cfg,key);
+      const eventKey = `epoch-end:${slug}:${key}:${period.end}`;
+      if(period.end && now >= period.end && !notificationPrefs.events[eventKey]){
+        notifyUser(`${cfg.symbol} Epoch ${key} bitti`, `${exactDateLabel(period.end)} itibarıyla epoch sona erdi.`, eventKey);
+        notificationPrefs.events[eventKey] = true; changed = true;
+      }
+    });
+    const endKey = `campaign-end:${slug}:${end}`;
+    if(end && now >= end && !notificationPrefs.events[endKey]){
+      notifyUser(`${cfg.label} bitti`, 'Kampanya süresi sona erdi.', endKey);
+      notificationPrefs.events[endKey] = true; changed = true;
+    }
+  });
+  if(changed) saveNotificationPrefs();
+}
+async function toggleNotifications(){
+  if(notificationPrefs.enabled){
+    notificationPrefs.enabled = false;
+    saveNotificationPrefs(); updateNotifyButton();
+    showToast('Bildirimler kapatıldı', 'Kampanya ve epoch uyarıları durduruldu.');
+    return;
+  }
+  if(!('Notification' in window)){
+    showToast('Bildirim desteklenmiyor', 'Bu tarayıcı sistem bildirimlerini desteklemiyor.');
+    return;
+  }
+  const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if(permission !== 'granted'){
+    showToast('Bildirim izni verilmedi', 'İstersen tarayıcı ayarlarından daha sonra açabilirsin.');
+    return;
+  }
+  notificationPrefs.enabled = true;
+  seedNotificationEvents();
+  updateNotifyButton();
+  showToast('Bildirimler açıldı', 'Yeni kampanya ve epoch bitişleri bildirilecek.');
+}
+
 function init(){
   // Sayfayi ag yanitini bekletmeden gomulu veriyle hemen ciz.
   buildCampaignTabs();
   buildEpochTabs();
+  persistTrackedUsers();
+  renderWatchlist();
+  updateNotifyButton();
   load(currentEpoch);
   refreshData();
 
   setInterval(()=>{
     updateCampaignClock();
+    updateCampaignStatusTabs();
+    updateDataHealth();
+    checkCampaignNotifications();
     if(document.visibilityState === 'visible' && Date.now() >= nextAutoRefreshAt) refreshData();
     else updateRefreshCountdown();
   }, 1000);
@@ -801,6 +1041,11 @@ function render(d){
       rs.innerHTML = '';
     }
   }
+  document.getElementById('rewardDetail').style.display = 'none';
+  document.getElementById('rewardDetail').innerHTML = '';
+  document.getElementById('goalCalculator').style.display = 'none';
+  renderTrackedSummary();
+  updateDataHealth();
 
   document.getElementById('footNote').innerHTML =
     'Veri kaynağı: <a href="https://titan.exchange/prestock" target="_blank">titan.exchange</a> · ' +
@@ -809,7 +1054,7 @@ function render(d){
 }
 
 // --- Genel tek-token kampanya gorunumu (SpaceX, Micron, ...) ---
-function campaignRewardBreakdown(query, cd, cfg){
+function campaignRewardRows(query, cd, cfg){
   const campaignData = DATA[currentCampaign] || {};
   const isAll = String(cd.epoch) === 'all';
   let epochKeys = isAll
@@ -822,27 +1067,173 @@ function campaignRewardBreakdown(query, cd, cfg){
   const fallbackEpochPool = epochKeys.length
     ? (cfg.campaignPool || 0) / epochKeys.length
     : 0;
-  let reward = 0;
-  let volume = 0;
-  const matches = [];
-
-  epochKeys.forEach(epochKey => {
+  return epochKeys.map(epochKey => {
     const epochData = epochKey === String(cd.epoch) ? cd : campaignData[epochKey];
-    if(!epochData) return;
+    if(!epochData) return null;
     const epochBoard = (epochData.board || []).slice(0, cfg.topN);
     const row = findRank(epochBoard, query);
     const epochTotal = epochBoard.reduce((sum, item)=>sum+(item.volume||0), 0);
-    if(!row || epochTotal <= 0) return;
     const epochPool = epochKey === 'all'
       ? (cfg.campaignPool || 0)
       : (cfg.epochPool || fallbackEpochPool);
-    reward += epochPool * (row.volume || 0) / epochTotal;
-    volume += row.volume || 0;
-    matches.push({epoch: epochKey, row});
-  });
+    const volume = row?.volume || 0;
+    const reward = row && epochTotal > 0 ? epochPool * volume / epochTotal : 0;
+    const cost = volume * cfg.costRate;
+    return {epoch:epochKey, epochData, board:epochBoard, epochTotal, epochPool, row, volume, reward, cost, net:reward-cost};
+  }).filter(Boolean);
+}
 
-  const cost = volume * cfg.costRate;
-  return {reward, volume, cost, net: reward-cost, matches};
+function campaignRewardBreakdown(query, cd, cfg){
+  const rows = campaignRewardRows(query, cd, cfg);
+  const reward = rows.reduce((sum,item)=>sum+item.reward,0);
+  const volume = rows.reduce((sum,item)=>sum+item.volume,0);
+  const cost = rows.reduce((sum,item)=>sum+item.cost,0);
+  const matches = rows.filter(item=>item.row).map(item=>({epoch:item.epoch,row:item.row}));
+
+  return {reward, volume, cost, net: reward-cost, matches, rows};
+}
+
+function persistTrackedUsers(){
+  localStorage.setItem('titanTrackedUsers', JSON.stringify(trackedUsers));
+}
+function renderWatchlist(){
+  const list = document.getElementById('watchlist');
+  if(!list) return;
+  if(!trackedUsers.length){
+    list.innerHTML = '<span class="watch-empty">Takip edilen kullanıcı yok.</span>';
+    return;
+  }
+  list.innerHTML = trackedUsers.map(name =>
+    `<span class="watch-chip${name.toLowerCase()===userQuery.toLowerCase()?' active':''}">` +
+      `<button type="button" class="user" data-watch-user="${escapeHTML(name)}">${escapeHTML(name)}</button>` +
+      `<button type="button" class="remove" data-remove-user="${escapeHTML(name)}" aria-label="${escapeHTML(name)} kullanıcısını kaldır">×</button>` +
+    `</span>`
+  ).join('');
+}
+function prestocksUserMetrics(query, d){
+  let volume = 0, reward = 0, cost = 0, found = 0, bestRank = null;
+  (d?.tokens || []).forEach(token => {
+    const board = token.board || token.top || [];
+    const row = findRank(board, query);
+    if(!row) return;
+    found++;
+    volume += row.volume || 0;
+    bestRank = bestRank == null ? row.rank : Math.min(bestRank, row.rank);
+    if(d.epoch === REWARD.onlyEpoch){
+      const topSum = board.reduce((sum,item)=>sum+(item.volume||0),0);
+      reward += topSum > 0 ? REWARD.perToken * (row.volume||0) / topSum : 0;
+      cost += (row.volume||0) * REWARD.costRate;
+    }
+  });
+  return {rank:bestRank, rankLabel:found?`En iyi #${bestRank} · ${found} token`:'—', volume, reward, cost, net:reward-cost};
+}
+function trackedUserMetrics(query){
+  if(currentCampaign === 'prestocks'){
+    return prestocksUserMetrics(query, applyRules(DATA[currentEpoch]));
+  }
+  const cfg = campaignConfig(currentCampaign);
+  const cd = DATA[currentCampaign]?.[currentEpoch] || DATA[currentCampaign]?.all;
+  if(!cd) return {rank:null,rankLabel:'—',volume:0,reward:0,cost:0,net:0};
+  const me = findRank(cd.board || [], query);
+  const breakdown = campaignRewardBreakdown(query, cd, cfg);
+  return {
+    rank:me?.rank || null,
+    rankLabel:me ? '#'+me.rank : (breakdown.matches.length?breakdown.matches.length+' epochte':'—'),
+    volume:breakdown.volume,
+    reward:breakdown.reward,
+    cost:breakdown.cost,
+    net:breakdown.net,
+  };
+}
+function renderTrackedSummary(){
+  const box = document.getElementById('trackedSummary');
+  if(!box) return;
+  renderWatchlist();
+  if(trackedUsers.length < 2){ box.style.display='none'; box.innerHTML=''; return; }
+  const rows = trackedUsers.map(name=>({name, metrics:trackedUserMetrics(name)}));
+  box.style.display = 'block';
+  box.innerHTML = `<div class="detail-title">Takip Listesi · ${currentCampaign==='prestocks'?'PreStocks':escapeHTML(campaignConfig(currentCampaign).symbol)}</div>` +
+    `<div class="detail-scroll"><table class="detail-table"><thead><tr><th>Kullanıcı</th><th>Sıra</th><th>Hacim</th><th>Ödül</th><th>Net</th></tr></thead><tbody>` +
+    rows.map(({name,metrics})=>`<tr><td>${escapeHTML(name)}</td><td>${metrics.rankLabel}</td><td>${fmtUSD(metrics.volume)}</td>` +
+      `<td>$${metrics.reward.toFixed(2)}</td><td class="${metrics.net>=0?'positive':'negative'}">${metrics.net>=0?'+':'−'}$${Math.abs(metrics.net).toFixed(2)}</td></tr>`).join('') +
+    `</tbody></table></div>`;
+}
+function renderRewardDetail(cd, cfg, breakdown){
+  const box = document.getElementById('rewardDetail');
+  if(!box || !userQuery || !breakdown){ if(box){box.style.display='none';box.innerHTML='';} return; }
+  box.style.display = 'block';
+  box.innerHTML = `<div class="detail-title">Epoch Bazında Ödül Detayı · ${escapeHTML(userQuery)}</div>` +
+    `<div class="detail-scroll"><table class="detail-table"><thead><tr><th>Dönem</th><th>Sıra</th><th>Hacim</th><th>Havuz</th><th>Ödül</th><th>Maliyet</th><th>Net</th></tr></thead><tbody>` +
+    breakdown.rows.map(item=>`<tr><td>${item.epoch==='all'?'Kampanya':'Epoch '+item.epoch}</td><td>${item.row?'#'+item.row.rank:'—'}</td>` +
+      `<td>${fmtUSD(item.volume)}</td><td>$${fmtNum(item.epochPool)}</td><td>$${item.reward.toFixed(2)}</td>` +
+      `<td>$${item.cost.toFixed(2)}</td><td class="${item.net>=0?'positive':'negative'}">${item.net>=0?'+':'−'}$${Math.abs(item.net).toFixed(2)}</td></tr>`).join('') +
+    `</tbody></table></div>`;
+}
+function activeEpochKey(cfg){
+  const campaignData = DATA[currentCampaign] || {};
+  const epochKeys = (cfg.epochs || []).map(String).filter(key=>key!=='all' && campaignData[key]);
+  const now = Date.now();
+  const active = epochKeys.find(key=>{
+    const period = campaignPeriod(cfg,key);
+    return period.start && period.end && now >= period.start && now < period.end;
+  });
+  if(active) return active;
+  const populated = epochKeys.filter(key=>(campaignData[key]?.board || []).length);
+  return populated[populated.length-1] || epochKeys[0] || 'all';
+}
+function renderGoalCalculator(cd, cfg){
+  const box = document.getElementById('goalCalculator');
+  const result = document.getElementById('goalResult');
+  if(!box || !result) return;
+  if(currentCampaign === 'prestocks'){
+    box.style.display='none'; result.innerHTML=''; return;
+  }
+  box.style.display='block';
+  const calcEpoch = String(currentEpoch)==='all' ? activeEpochKey(cfg) : String(currentEpoch);
+  const campaignData = DATA[currentCampaign] || {};
+  const epochData = campaignData[calcEpoch];
+  const board = (epochData?.board || []).slice(0,cfg.topN);
+  const pool = calcEpoch==='all' ? cfg.campaignPool : (cfg.epochPool || cfg.campaignPool);
+  const targetReward = Math.max(0, Number(targetRewardValue)||0);
+  const swapAmount = Math.max(0, Number(swapAmountValue)||0);
+  const me = userQuery ? findRank(board,userQuery) : null;
+  const currentVolume = me?.volume || 0;
+  const boardTotal = board.reduce((sum,row)=>sum+(row.volume||0),0);
+  const othersVolume = Math.max(0, boardTotal-currentVolume);
+  const allData = campaignData.all || cd;
+  const allRows = campaignRewardRows(userQuery, allData, cfg);
+  const lockedReward = String(currentEpoch)==='all'
+    ? allRows.filter(row=>row.epoch!==calcEpoch).reduce((sum,row)=>sum+row.reward,0)
+    : 0;
+  const epochTarget = Math.max(0, targetReward-lockedReward);
+  const cutoff = !me && board.length >= cfg.topN ? (board[board.length-1]?.volume||0)+.01 : 0;
+
+  if(!epochData || !board.length || !pool){
+    result.innerHTML = `<div class="goal-note">${escapeHTML(cfg.symbol)} ${calcEpoch==='all'?'kampanya':'Epoch '+calcEpoch} için hesaplanabilir lider tablosu henüz oluşmadı.</div>`;
+    return;
+  }
+  if(epochTarget >= pool){
+    result.innerHTML = `<div class="goal-note">Hedef, hesaplanan ${calcEpoch==='all'?'kampanya':'Epoch '+calcEpoch} havuzuna eşit veya daha büyük. Daha düşük bir hedef gir.</div>`;
+    return;
+  }
+  let requiredVolume = epochTarget > 0 ? epochTarget*othersVolume/(pool-epochTarget) : currentVolume;
+  requiredVolume = Math.max(requiredVolume, cutoff);
+  const additionalVolume = Math.max(0, requiredVolume-currentVolume);
+  const swaps = swapAmount > 0 ? Math.ceil(additionalVolume/swapAmount) : 0;
+  const executedVolume = swaps * swapAmount;
+  const projectedVolume = currentVolume + executedVolume;
+  const projectedEpochReward = projectedVolume > 0 ? pool*projectedVolume/(othersVolume+projectedVolume) : 0;
+  const projectedTotalReward = lockedReward + projectedEpochReward;
+  const estimatedCost = executedVolume * cfg.costRate;
+  result.innerHTML = `<div class="goal-result">` +
+    `<div class="goal-stat"><span>Gerekli toplam hacim</span><b>${fmtUSD(requiredVolume)}</b></div>` +
+    `<div class="goal-stat"><span>Ek hacim</span><b>${fmtUSD(additionalVolume)}</b></div>` +
+    `<div class="goal-stat"><span>Gerekli swap</span><b>${fmtNum(swaps)}</b></div>` +
+    `<div class="goal-stat"><span>Tahmini maliyet</span><b>$${estimatedCost.toFixed(2)}</b></div>` +
+    `</div><div class="goal-note">Hesaplanan dönem: <b>${calcEpoch==='all'?'Kampanya':'Epoch '+calcEpoch}</b>. ` +
+    `${lockedReward?`Önceki epoch ödülü $${lockedReward.toFixed(2)} hedefe dahil. `:''}` +
+    `${swaps?`${fmtUSD(swapAmount)} hacimli ${fmtNum(swaps)} swap sonrası tahmini toplam ödül $${projectedTotalReward.toFixed(2)}.`:'Hedef hacme zaten ulaşılmış görünüyor.'} ` +
+    `Pro-rata oranları diğer kullanıcıların hacmi değişmezse geçerlidir.</div>`;
 }
 
 function renderCampaign(cd, cfg){
@@ -920,6 +1311,10 @@ function renderCampaign(cd, cfg){
   }else{
     rs.style.display = 'none'; rs.innerHTML = '';
   }
+  renderRewardDetail(cd, cfg, userBreakdown);
+  renderGoalCalculator(cd, cfg);
+  renderTrackedSummary();
+  updateDataHealth();
 
   document.getElementById('footNote').innerHTML =
     '$' + sym + ' kampanyası · kaynak: <a href="https://titan.exchange/prestock" target="_blank">titan.exchange</a> · ' +
@@ -948,11 +1343,18 @@ document.getElementById('refresh').addEventListener('click', ()=>refreshData({ma
 
 // cuzdan girisi
 const walletInput = document.getElementById('walletInput');
+const targetRewardInput = document.getElementById('targetRewardInput');
+const swapAmountInput = document.getElementById('swapAmountInput');
 walletInput.value = userQuery;
+targetRewardInput.value = targetRewardValue;
+swapAmountInput.value = swapAmountValue;
 function applyWallet(){
-  userQuery = walletInput.value.trim();
-  if(userQuery) localStorage.setItem('titanWallet', userQuery);
-  else localStorage.removeItem('titanWallet');
+  const nextUser = walletInput.value.trim();
+  if(!nextUser) return;
+  userQuery = nextUser;
+  trackedUsers = [nextUser, ...trackedUsers.filter(value=>value.toLowerCase()!==nextUser.toLowerCase())].slice(0,8);
+  localStorage.setItem('titanWallet', userQuery);
+  persistTrackedUsers();
   load(currentEpoch);
 }
 document.getElementById('walletBtn').addEventListener('click', applyWallet);
@@ -960,6 +1362,35 @@ walletInput.addEventListener('keydown', e=>{ if(e.key==='Enter') applyWallet(); 
 document.getElementById('walletClear').addEventListener('click', ()=>{
   walletInput.value = ''; userQuery = ''; localStorage.removeItem('titanWallet'); load(currentEpoch);
 });
+document.getElementById('watchlist').addEventListener('click', e=>{
+  const removeButton = e.target.closest('[data-remove-user]');
+  const userButton = e.target.closest('[data-watch-user]');
+  if(removeButton){
+    const name = removeButton.dataset.removeUser;
+    trackedUsers = trackedUsers.filter(value=>value.toLowerCase()!==name.toLowerCase());
+    if(userQuery.toLowerCase()===name.toLowerCase()) userQuery = trackedUsers[0] || '';
+    walletInput.value = userQuery;
+    if(userQuery) localStorage.setItem('titanWallet',userQuery); else localStorage.removeItem('titanWallet');
+    persistTrackedUsers(); load(currentEpoch); return;
+  }
+  if(userButton){
+    userQuery = userButton.dataset.watchUser;
+    walletInput.value = userQuery;
+    localStorage.setItem('titanWallet',userQuery);
+    load(currentEpoch);
+  }
+});
+targetRewardInput.addEventListener('input', ()=>{
+  targetRewardValue = Math.max(0,Number(targetRewardInput.value)||0);
+  localStorage.setItem('titanTargetReward',targetRewardValue);
+  if(currentCampaign!=='prestocks') renderGoalCalculator(DATA[currentCampaign]?.[currentEpoch]||DATA[currentCampaign]?.all,campaignConfig(currentCampaign));
+});
+swapAmountInput.addEventListener('input', ()=>{
+  swapAmountValue = Math.max(0,Number(swapAmountInput.value)||0);
+  localStorage.setItem('titanSwapAmount',swapAmountValue);
+  if(currentCampaign!=='prestocks') renderGoalCalculator(DATA[currentCampaign]?.[currentEpoch]||DATA[currentCampaign]?.all,campaignConfig(currentCampaign));
+});
+document.getElementById('notifyBtn').addEventListener('click', toggleNotifications);
 
 init();
 </script>
