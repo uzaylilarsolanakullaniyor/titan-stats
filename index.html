@@ -23,22 +23,25 @@
     --shadow:0 18px 55px rgba(2,6,23,.38);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
+  html{min-height:100%;background:var(--bg)}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",Helvetica,Arial,sans-serif;
-    background:
-      radial-gradient(circle at 18% -10%,rgba(59,130,246,.14),transparent 36%),
-      radial-gradient(circle at 88% 16%,rgba(94,234,212,.10),transparent 30%),
-      var(--bg);
+    background:var(--bg);
     color:var(--txt);
     -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
     min-height:100vh;
     position:relative;
+    isolation:isolate;
   }
 
   /* ---------- animated background blobs ---------- */
-  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;filter:saturate(.9);pointer-events:none}
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;filter:saturate(.9);pointer-events:none;
+    background:
+      radial-gradient(circle at 18% -10%,rgba(59,130,246,.14),transparent 36%),
+      radial-gradient(circle at 88% 16%,rgba(94,234,212,.10),transparent 30%),
+      linear-gradient(180deg,#070b14 0%,#08101d 100%);
+    background-repeat:no-repeat;background-size:cover}
   .blob{position:absolute;border-radius:50%;filter:blur(120px);opacity:.18;mix-blend-mode:screen;animation:float 28s ease-in-out infinite}
   .blob.b1{width:42vw;height:42vw;background:#2563eb;top:-16vw;left:-10vw}
   .blob.b2{width:36vw;height:36vw;background:#6366f1;bottom:-16vw;right:-8vw;animation-delay:-9s}
