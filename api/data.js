@@ -119,27 +119,33 @@ async function discoverCampaignDefs() {
       ];
       const known = candidates.find(candidate => campaigns[candidate]);
       const slug = known || await resolveCampaignSlug(candidates);
-      if (!slug || campaigns[slug]) continue;
+      if (!slug) continue;
 
       const start = Number(item.campaignStartDate || 0);
       const end = Number(item.campaignEndDate || 0);
-      const epochCount = Math.max(1, Math.min(12, Math.ceil(Math.max(0, end - start) / (7 * 24 * 60 * 60))));
+      const existing = campaigns[slug] || {};
+      const duration = Math.max(0, end - start);
+      const epochCount = duration
+        ? Math.max(1, Math.min(12, Math.ceil(duration / (7 * 24 * 60 * 60))))
+        : Math.max(1, (existing.epochs || []).filter(epoch => epoch !== null).length);
       const totalReward = parseRewardAmount(`${item.title || ""} ${item.description || ""}`);
       const labelName = rawName || symbol || slug.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+      const previousMeta = existing.meta || {};
       campaigns[slug] = {
         epochs: [null, ...Array.from({ length: epochCount }, (_, i) => i + 1)],
         meta: {
-          label: symbol ? `${labelName} · ${symbol}` : labelName,
-          symbol: symbol || slug.toUpperCase(),
+          ...previousMeta,
+          label: (symbol ? `${labelName} · ${symbol}` : labelName) || previousMeta.label,
+          symbol: symbol || previousMeta.symbol || slug.toUpperCase(),
           epochs: ["all", ...Array.from({ length: epochCount }, (_, i) => String(i + 1))],
-          campaignPool: totalReward,
-          epochPool: totalReward ? totalReward / epochCount : 0,
-          topN: 100,
-          costRate: 0.0003,
-          startTime: start,
-          endTime: end,
+          campaignPool: totalReward || previousMeta.campaignPool || 0,
+          epochPool: totalReward ? totalReward / epochCount : previousMeta.epochPool || 0,
+          topN: previousMeta.topN || 100,
+          costRate: previousMeta.costRate || 0.0003,
+          startTime: start || previousMeta.startTime || 0,
+          endTime: end || previousMeta.endTime || 0,
           tokenAddress: item.output_mint,
-          logo: token.logoURI || item.image,
+          logo: token.logoURI || item.image || previousMeta.logo,
         },
       };
     }
@@ -238,8 +244,8 @@ async function buildCampaignEpoch(slug, epoch) {
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  // Vercel kenarinda 60 sn onbellek; arka planda 5 dk tazeleme
-  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+  // Sabit /api/data URL'si eski veriyi aninda sunar, Vercel arka planda tazeler.
+  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=86400");
   try {
     const [tokenResponse, campaignDefs] = await Promise.all([
       get("/api/tokens/prestocks"),

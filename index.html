@@ -63,8 +63,13 @@
   .iconbtn{appearance:none;border:1px solid var(--stroke-soft);background:var(--glass);color:var(--txt);
     width:42px;height:42px;border-radius:13px;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(20px);transition:.25s}
   .iconbtn:hover{background:var(--glass-strong)}
+  .iconbtn:disabled{cursor:wait;opacity:.72}
   .iconbtn svg{width:18px;height:18px}
   .iconbtn.spin svg{animation:spin .9s linear infinite}
+  .refresh-control{display:flex;align-items:center;gap:8px}
+  .refresh-status{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .refresh-status.live{color:var(--good)}
+  .refresh-status.warn{color:#ffb27a}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   /* ---------- glass card base ---------- */
@@ -90,6 +95,8 @@
   .hero-stats{display:flex;gap:30px;flex-wrap:wrap}
   .hero-stats .s .v{font-size:26px;font-weight:700}
   .hero-stats .s .k{font-size:12px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
+  .hero-stats .campaign-clock .v{font-size:20px;color:var(--good);font-variant-numeric:tabular-nums}
+  .hero-stats .campaign-clock.ended .v{color:#ffb27a}
 
   /* ---------- chart ---------- */
   .panel{padding:26px 30px;margin-bottom:24px}
@@ -245,9 +252,12 @@
           <button data-epoch="3">Epoch 3</button>
           <button data-epoch="4">Epoch 4</button>
         </div>
-        <button class="iconbtn" id="refresh" title="Yenile">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-        </button>
+        <div class="refresh-control">
+          <span class="refresh-status" id="refreshStatus" aria-live="polite">Hazırlanıyor…</span>
+          <button class="iconbtn" id="refresh" title="Şimdi yenile" aria-label="Verileri şimdi yenile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -266,6 +276,9 @@
         <div class="s"><div class="v" id="hsTokens">—</div><div class="k" id="kTokens">Token</div></div>
         <div class="s"><div class="v" id="hsTrades">—</div><div class="k" id="kTrades">Toplam İşlem</div></div>
         <div class="s"><div class="v" id="hsTop">—</div><div class="k" id="kTop">Lider Token</div></div>
+        <div class="s campaign-clock" id="campaignClock" hidden>
+          <div class="v" id="hsDeadline">—</div><div class="k" id="kDeadline">Kampanya bitişi</div>
+        </div>
       </div>
     </section>
 
@@ -348,21 +361,79 @@ function titleize(slug){
   return slug.split(/[-_]+/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
 }
 function campaignConfig(slug){
-  if(CAMPAIGNS[slug]) return CAMPAIGNS[slug];
   const sample = DATA[slug] || {};
   const meta = sample.meta || {};
+  const base = CAMPAIGNS[slug] || {};
   const epochs = (meta.epochs || Object.keys(sample).filter(k=>k==='all'||/^\d+$/.test(k)))
     .map(String).sort((a,b)=>a==='all'?-1:b==='all'?1:Number(a)-Number(b));
   const label = titleize(slug);
   return CAMPAIGNS[slug] = {
-    label: meta.label || label,
-    symbol: meta.symbol || label.split(' ').map(w=>w[0]).join('').slice(0,5).toUpperCase() || slug.toUpperCase(),
-    epochPool: Number(meta.epochPool) || 0,
-    campaignPool: Number(meta.campaignPool) || 0,
-    topN: Number(meta.topN) || 100,
-    costRate: Number(meta.costRate) || 0.0003,
-    epochs: epochs.length ? epochs : ['all'],
+    label: meta.label || base.label || label,
+    symbol: meta.symbol || base.symbol || label.split(' ').map(w=>w[0]).join('').slice(0,5).toUpperCase() || slug.toUpperCase(),
+    epochPool: Number(meta.epochPool) || Number(base.epochPool) || 0,
+    campaignPool: Number(meta.campaignPool) || Number(base.campaignPool) || 0,
+    topN: Number(meta.topN) || Number(base.topN) || 100,
+    costRate: Number(meta.costRate) || Number(base.costRate) || 0.0003,
+    epochs: epochs.length ? epochs : (base.epochs || ['all']),
+    startTime: Number(meta.startTime) || Number(base.startTime) || 0,
+    endTime: Number(meta.endTime) || Number(base.endTime) || 0,
+    tokenAddress: meta.tokenAddress || base.tokenAddress || '',
+    logo: meta.logo || base.logo || '',
   };
+}
+
+function timestampMs(value){
+  const n = Number(value) || 0;
+  return n > 1e12 ? n : n * 1000;
+}
+function remainingLabel(milliseconds){
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if(days) return `${days}g ${hours}sa ${minutes}dk`;
+  if(hours) return `${hours}sa ${minutes}dk`;
+  if(minutes) return `${minutes}dk ${seconds}sn`;
+  return `${seconds}sn`;
+}
+function exactDateLabel(value){
+  return new Date(value).toLocaleString('tr-TR', {
+    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
+function updateCampaignClock(){
+  const clock = document.getElementById('campaignClock');
+  if(currentCampaign === 'prestocks'){
+    clock.hidden = true;
+    return;
+  }
+  const cfg = campaignConfig(currentCampaign);
+  const start = timestampMs(cfg.startTime);
+  const end = timestampMs(cfg.endTime);
+  if(!start && !end){
+    clock.hidden = true;
+    return;
+  }
+  const now = Date.now();
+  const value = document.getElementById('hsDeadline');
+  const label = document.getElementById('kDeadline');
+  clock.hidden = false;
+  clock.classList.toggle('ended', !!end && now >= end);
+  if(start && now < start){
+    value.textContent = remainingLabel(start-now);
+    label.textContent = exactDateLabel(start) + ' başlar';
+  }else if(end && now < end){
+    value.textContent = remainingLabel(end-now);
+    label.textContent = exactDateLabel(end) + ' biter';
+  }else if(end){
+    value.textContent = 'Bitti';
+    label.textContent = exactDateLabel(end) + ' sona erdi';
+  }else{
+    value.textContent = 'Aktif';
+    label.textContent = exactDateLabel(start) + ' başladı';
+  }
+  clock.title = label.textContent;
 }
 function buildCampaignTabs(){
   const seg = document.getElementById('campaignSeg');
@@ -420,10 +491,6 @@ let DATA = SNAPSHOT;
 
 function load(epoch){
   currentEpoch = epoch;
-  const rb = document.getElementById('refresh');
-  rb.classList.add('spin');
-  setTimeout(()=>rb.classList.remove('spin'), 700);
-
   const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
   if(cfg){
     const cd = (DATA[currentCampaign] && DATA[currentCampaign][epoch]) ? DATA[currentCampaign][epoch] : null;
@@ -467,15 +534,45 @@ async function fetchSource(url, opts){
   }catch(e){}
   return null;
 }
-let dataPriority = 0; // SNAPSHOT=0, data.json=1, canli API=2
+
+const sourcePriorities = Object.create(null);
+function payloadGeneratedAt(payload){
+  if(!payload || typeof payload !== 'object') return 0;
+  if(Number(payload.generatedAt)) return Number(payload.generatedAt);
+  return Math.max(0, ...Object.values(payload).map(value =>
+    value && typeof value === 'object' ? Number(value.generatedAt)||0 : 0
+  ));
+}
+function payloadVolume(payload){
+  if(!payload || typeof payload !== 'object') return 0;
+  if(Number.isFinite(Number(payload.grandVolume))) return Number(payload.grandVolume);
+  if(Number.isFinite(Number(payload.volume))) return Number(payload.volume);
+  return payload.all ? payloadVolume(payload.all) : 0;
+}
 function acceptData(next, priority){
-  if(!next) return;
-  // Dusuk oncelikli kaynak gec gelirse yalnizca eksik kampanyalari tamamlasin.
-  if(priority < dataPriority) DATA = Object.assign({}, next, DATA);
-  else{
-    dataPriority = priority;
-    DATA = Object.assign({}, DATA, next);
-  }
+  if(!next) return false;
+  let changed = false;
+  Object.entries(next).forEach(([key, payload]) => {
+    const current = DATA[key];
+    const nextAt = payloadGeneratedAt(payload);
+    const currentAt = payloadGeneratedAt(current);
+    const nextVolume = payloadVolume(payload);
+    const currentVolume = payloadVolume(current);
+    // Gecici API hatasi bos/eksik tablo dondururse ekrandaki saglam veriyi sifirlama.
+    const suspiciousDrop = currentVolume > 0 && nextVolume < currentVolume * .95;
+    const isNewer = nextAt > currentAt;
+    const sameAgeHigherPriority = nextAt === currentAt && priority >= (sourcePriorities[key] || 0);
+    if(!current || (!suspiciousDrop && (isNewer || sameAgeHigherPriority))){
+      DATA[key] = payload;
+      sourcePriorities[key] = priority;
+      changed = true;
+    }else if(payload?.meta){
+      DATA[key] = Object.assign({}, current, {
+        meta: Object.assign({}, current.meta || {}, payload.meta)
+      });
+      changed = true;
+    }
+  });
   if(currentCampaign !== 'prestocks' && !DATA[currentCampaign] && !CAMPAIGNS[currentCampaign]){
     currentCampaign = 'prestocks';
     currentEpoch = 'all';
@@ -483,21 +580,91 @@ function acceptData(next, priority){
   buildCampaignTabs();
   buildEpochTabs();
   load(currentEpoch);
+  return changed;
 }
+
+const AUTO_REFRESH_MS = 60 * 1000;
+const REFRESH_TIMEOUT_MS = 12 * 1000;
+let refreshInFlight = null;
+let nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+let lastRefreshLabel = 'Otomatik';
+
+function setRefreshState(busy, message, tone=''){
+  const button = document.getElementById('refresh');
+  const status = document.getElementById('refreshStatus');
+  button.classList.toggle('spin', busy);
+  button.disabled = busy;
+  button.setAttribute('aria-busy', busy ? 'true' : 'false');
+  status.textContent = message;
+  status.className = 'refresh-status' + (tone ? ' '+tone : '');
+}
+function updateRefreshCountdown(){
+  if(refreshInFlight) return;
+  const seconds = Math.max(0, Math.ceil((nextAutoRefreshAt-Date.now())/1000));
+  setRefreshState(false, `${lastRefreshLabel} · ${seconds} sn`, lastRefreshLabel==='Canlı'?'live':'');
+}
+function refreshData({manual=false}={}){
+  if(refreshInFlight) return refreshInFlight;
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), REFRESH_TIMEOUT_MS);
+  let successCount = 0;
+  let liveReady = false;
+  setRefreshState(true, manual ? 'Şimdi yenileniyor…' : 'Veri kontrol ediliyor…');
+
+  const consume = async (promise, priority, sourceLabel) => {
+    const data = await promise;
+    if(!data) return;
+    acceptData(data, priority);
+    successCount++;
+    if(priority === 2 || !liveReady) lastRefreshLabel = sourceLabel;
+    liveReady = liveReady || priority === 2;
+    // data.json genellikle hemen gelir; yavas canli kaynagi beklerken ekrani kullanilabilir birak.
+    setRefreshState(false,
+      priority === 2 ? 'Canlı veri hazır' : 'Veri hazır · canlı kontrol sürüyor',
+      priority === 2 ? 'live' : '');
+  };
+
+  const stamp = Date.now();
+  refreshInFlight = Promise.allSettled([
+    consume(fetchSource('./data.json?t='+stamp, {cache:'no-store', signal:controller.signal}), 1, 'Güncel'),
+    // Sabit URL Vercel edge cache'ini kullanir; timestamp eklemek her istegi pahali cold-start'a ceviriyordu.
+    consume(fetchSource('/api/data', {cache:'default', signal:controller.signal}), 2, 'Canlı'),
+  ]).finally(()=>{
+    clearTimeout(timeout);
+    refreshInFlight = null;
+    nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+    if(!successCount){
+      lastRefreshLabel = 'Mevcut veri';
+      setRefreshState(false, 'Kaynak gecikti · mevcut veri açık', 'warn');
+    }else if(!liveReady){
+      setRefreshState(false, 'Güncel veri hazır', 'live');
+    }else{
+      setRefreshState(false, 'Canlı veri hazır', 'live');
+    }
+    setTimeout(updateRefreshCountdown, 1800);
+  });
+  return refreshInFlight;
+}
+
 function init(){
   // Sayfayi ag yanitini bekletmeden gomulu veriyle hemen ciz.
   buildCampaignTabs();
   buildEpochTabs();
   load(currentEpoch);
+  refreshData();
 
-  // Statik dosya genellikle aninda gelir; canli API daha sonra sessizce tazeler.
-  fetchSource('./data.json?t=' + Date.now(), {cache:'no-store'})
-    .then(data => acceptData(data, 1));
-  fetchSource('/api/data?t=' + Date.now(), {cache:'no-store'})
-    .then(data => acceptData(data, 2));
+  setInterval(()=>{
+    updateCampaignClock();
+    if(document.visibilityState === 'visible' && Date.now() >= nextAutoRefreshAt) refreshData();
+    else updateRefreshCountdown();
+  }, 1000);
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && Date.now() >= nextAutoRefreshAt) refreshData();
+  });
 }
 
 function render(d){
+  updateCampaignClock();
   const max = Math.max(...d.tokens.map(t=>t.volume), 1);
 
   // prestocks gorunumu: grafik panelini ve etiketleri geri yukle
@@ -661,6 +828,7 @@ function campaignRewardBreakdown(query, cd, cfg){
 }
 
 function renderCampaign(cd, cfg){
+  updateCampaignClock();
   document.getElementById('chartPanel').style.display = 'none';
   const sym = cfg.symbol;
   const board = cd.board || [];
@@ -758,7 +926,7 @@ document.getElementById('epochSeg').addEventListener('click', e=>{
   b.classList.add('active');
   load(b.dataset.epoch);
 });
-document.getElementById('refresh').addEventListener('click', ()=>load(currentEpoch));
+document.getElementById('refresh').addEventListener('click', ()=>refreshData({manual:true}));
 
 // cuzdan girisi
 const walletInput = document.getElementById('walletInput');

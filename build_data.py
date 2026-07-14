@@ -155,33 +155,41 @@ def discover_campaigns():
         ]
         known = next((candidate for candidate in candidates if candidate in campaigns), None)
         slug = known or probe_campaign_slug(candidates)
-        if not slug or slug in campaigns:
+        if not slug:
             continue
 
         start = int(item.get("campaignStartDate") or 0)
         end = int(item.get("campaignEndDate") or 0)
         duration = max(0, end - start)
-        epoch_count = max(1, min(12, math.ceil(duration / (7 * 24 * 60 * 60))))
+        existing = campaigns.get(slug, {})
+        existing_epochs = existing.get("epochs", [])
+        epoch_count = (
+            max(1, min(12, math.ceil(duration / (7 * 24 * 60 * 60))))
+            if duration else max(1, len([ep for ep in existing_epochs if ep is not None]))
+        )
         total_reward = parse_reward_amount((item.get("title") or "") + " " + (item.get("description") or ""))
         epochs = [None] + list(range(1, epoch_count + 1))
         label_name = raw_name or symbol or slug.replace("-", " ").title()
+        previous_meta = existing.get("meta", {})
         campaigns[slug] = {
             "epochs": epochs,
             "meta": {
-                "label": f"{label_name} · {symbol}" if symbol else label_name,
-                "symbol": symbol or slug.upper(),
+                **previous_meta,
+                "label": (f"{label_name} · {symbol}" if symbol else label_name) or previous_meta.get("label"),
+                "symbol": symbol or previous_meta.get("symbol") or slug.upper(),
                 "epochs": ["all"] + [str(i) for i in range(1, epoch_count + 1)],
-                "campaignPool": total_reward,
-                "epochPool": total_reward / epoch_count if total_reward else 0,
-                "topN": 100,
-                "costRate": 0.0003,
-                "startTime": start,
-                "endTime": end,
+                "campaignPool": total_reward or previous_meta.get("campaignPool", 0),
+                "epochPool": (total_reward / epoch_count) if total_reward else previous_meta.get("epochPool", 0),
+                "topN": previous_meta.get("topN", 100),
+                "costRate": previous_meta.get("costRate", 0.0003),
+                "startTime": start or previous_meta.get("startTime", 0),
+                "endTime": end or previous_meta.get("endTime", 0),
                 "tokenAddress": item.get("output_mint"),
-                "logo": token.get("logoURI") or item.get("image"),
+                "logo": token.get("logoURI") or item.get("image") or previous_meta.get("logo"),
             },
         }
-        print(f"  + yeni kampanya kesfedildi: {slug} ({campaigns[slug]['meta']['label']})")
+        action = "kampanya guncellendi" if existing else "yeni kampanya kesfedildi"
+        print(f"  + {action}: {slug} ({campaigns[slug]['meta']['label']})")
     return campaigns
 
 

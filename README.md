@@ -29,11 +29,15 @@ isteklere izin verdiği için tarayıcı **doğrudan** veri çekemez. Bu yüzden
 - **GitHub Actions** her 15 dakikada bir GitHub'ın sunucusunda çalışır (senin Mac'in kapalı olsa bile),
   `build_data.py` ile API'den güncel veriyi çeker ve `data.json`'ı günceller.
 - Titan yeni bir tek-token ödül kampanyası yayınladığında duyuru/token bilgisi otomatik keşfedilir;
-  slug doğrulanır ve kampanya sekmesi, epoch'ları ve ödül havuzu `data.json`'a eklenir.
+  slug doğrulanır; kampanya sekmesi, epoch'ları, ödül havuzu, başlangıç ve bitiş zamanı
+  `data.json`'a eklenir.
 - Daha önce keşfedilmiş kampanyalar duyuru süresi sona erse de sonraki güncellemelerde korunur.
 - GitHub Pages değişikliği otomatik yeniden yayınlar.
 - Sayfa açılırken `data.json`'ı çeker; bulamazsa `index.html` içine gömülü
   yedek veriyle yine de çalışır.
+- Açık sayfa veriyi dakikada bir otomatik kontrol eder. Hızlı statik veri hemen gösterilir;
+  Vercel canlı kaynağı önbellekten arka planda tazelenir ve gecikirse mevcut sağlam veri korunur.
+- Başlangıç/bitiş bilgisi bulunan kampanyalarda tam bitiş tarihi ve canlı geri sayım otomatik görünür.
 
 > Güncelleme sıklığını değiştirmek için `update-data.yml` içindeki `cron` satırını düzenle.
 > Örn. yarım saatte bir: `*/30 * * * *`. (GitHub cron'u yoğun zamanlarda birkaç dk gecikebilir.)
