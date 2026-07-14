@@ -120,6 +120,7 @@ def discover_campaigns():
     """Titan'in aktif duyurularindan yeni hacim kampanyalarini otomatik kesfet."""
     campaigns = deepcopy(FALLBACK_SINGLE_CAMPAIGNS)
     campaigns.update(load_saved_campaigns())
+    seen_at = int(time.time())
     try:
         response = post("/api/campaigns/get", {
             "wallet_address": "",
@@ -194,6 +195,9 @@ def discover_campaigns():
                 "costRate": previous_meta.get("costRate", 0.0003),
                 "startTime": start or previous_meta.get("startTime", 0),
                 "endTime": end or previous_meta.get("endTime", 0),
+                # Tarih vermeyen duyurular da son gorulme zamanindan itibaren
+                # yedi gun boyunca arayuzde tutulabilir.
+                "lastSeenAt": seen_at,
                 "epochRanges": epoch_ranges,
                 "tokenAddress": item.get("output_mint"),
                 "logo": token.get("logoURI") or item.get("image") or previous_meta.get("logo"),
