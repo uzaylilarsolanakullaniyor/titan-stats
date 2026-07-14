@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Titan Analiz — Hacim Analiz Sunucusu
+Titan Stats — Hacim Analiz Sunucusu
 
 titan.exchange API'si "Origin" kontrolü yaptigi icin tarayicidan dogrudan
 cagrilamaz. Bu kucuk sunucu:
@@ -192,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"\n  Titan Analiz  →  http://localhost:{PORT}\n")
+    print(f"\n  Titan Stats  →  http://localhost:{PORT}\n")
     print("  Durdurmak icin: Ctrl+C\n")
     try:
         srv.serve_forever()

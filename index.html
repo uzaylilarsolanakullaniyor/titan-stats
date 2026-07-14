@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Titan Analiz</title>
-<link rel="icon" type="image/png" href="./assets/titan-logo.png" />
+<title>Titan Stats</title>
+<link rel="icon" type="image/png" href="./assets/titan-logo.png?v=2" />
 <style>
   :root{
     --bg:#070b14;
@@ -59,11 +59,10 @@
     background:rgba(7,11,20,.78);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);
     box-shadow:0 14px 38px rgba(2,6,23,.28)}
   .brand{display:flex;align-items:center;gap:14px}
-  .brand .mark{width:63px;height:42px;border-radius:13px;display:block;overflow:hidden;flex:none;
-    background:#fdfbfb;box-shadow:0 8px 22px rgba(244,63,94,.20),inset 0 0 0 1px rgba(255,255,255,.12)}
-  .brand .mark img{display:block;width:100%;height:100%;object-fit:cover}
+  .brand .mark{width:48px;height:48px;border-radius:14px;display:block;overflow:hidden;flex:none;
+    background:rgba(255,255,255,.05);box-shadow:0 8px 22px rgba(244,63,94,.22),inset 0 0 0 1px rgba(255,255,255,.10)}
+  .brand .mark img{display:block;width:100%;height:100%;object-fit:contain}
   .brand h1{font-size:18px;font-weight:750;letter-spacing:-.1px}
-  .brand p{font-size:12.5px;color:var(--muted);margin-top:2px}
 
   .controls{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
   .segment{display:flex;padding:4px;border-radius:13px;background:rgba(148,163,184,.07);border:1px solid var(--stroke-soft);backdrop-filter:blur(20px)}
@@ -329,10 +328,9 @@
   <div class="wrap">
     <header class="top">
       <div class="brand">
-        <div class="mark"><img src="./assets/titan-logo.png" alt="Titan Analiz" /></div>
+        <div class="mark"><img src="./assets/titan-logo.png?v=2" alt="Titan Stats" /></div>
         <div>
-          <h1 id="brandTitle">Titan Analiz</h1>
-          <p id="brandSubtitle">Campaign and epoch performance at a glance</p>
+          <h1 id="brandTitle">Titan Stats</h1>
         </div>
       </div>
       <div class="controls">
@@ -433,7 +431,7 @@
 <script>
 const I18N = {
   en: {
-    appTitle:'Titan Analiz', appSubtitle:'Campaign and epoch performance at a glance', language:'Language',
+    appTitle:'Titan Stats', language:'Language',
     allCampaign:'All Campaign', campaign:'Campaign', token:'Token', totalTrades:'Total Trades', topToken:'Top Token', participants:'Participants',
     campaignEnd:'Campaign end', chartTitle:'Volume by Token', chartDefaultHint:'Total volume across the top 100 traders',
     walletTitle:'Track Your Rank',
@@ -477,7 +475,7 @@ const I18N = {
     campaignFoot:'${symbol} campaign · source:', topTraders:'top 100 traders'
   },
   tr: {
-    appTitle:'Titan Analiz', appSubtitle:'Kampanya ve epoch performansı tek ekranda', language:'Dil',
+    appTitle:'Titan Stats', language:'Dil',
     allCampaign:'Tüm Kampanya', campaign:'Kampanya', token:'Token', totalTrades:'Toplam İşlem', topToken:'Lider Token', participants:'Katılımcı',
     campaignEnd:'Kampanya bitişi', chartTitle:'Token Bazında Hacim Dağılımı', chartDefaultHint:'İlk 100 işlemci bazında toplam hacim',
     walletTitle:'Sıralamanı Gör',
@@ -601,7 +599,6 @@ function applyStaticLanguage(){
   document.documentElement.lang = currentLang;
   document.title = t('appTitle');
   document.getElementById('brandTitle').textContent = t('appTitle');
-  document.getElementById('brandSubtitle').textContent = t('appSubtitle');
   document.getElementById('langSwitch').setAttribute('aria-label',t('language'));
   document.querySelectorAll('#langSwitch button').forEach(button=>{
     const active = button.dataset.lang === currentLang;
