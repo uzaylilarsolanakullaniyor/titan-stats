@@ -37,7 +37,8 @@ isteklere izin verdiği için tarayıcı **doğrudan** veri çekemez. Bu yüzden
   yedek veriyle yine de çalışır.
 - Açık sayfa veriyi dakikada bir otomatik kontrol eder. Hızlı statik veri hemen gösterilir;
   Vercel canlı kaynağı önbellekten arka planda tazelenir ve gecikirse mevcut sağlam veri korunur.
-- Başlangıç/bitiş bilgisi bulunan kampanyalarda tam bitiş tarihi ve canlı geri sayım otomatik görünür.
+- Başlangıç/bitiş bilgisi bulunan kampanyalarda seçili kampanya veya epoch'un kendi tarih aralığı
+  ve canlı geri sayımı otomatik görünür.
 
 > Güncelleme sıklığını değiştirmek için `update-data.yml` içindeki `cron` satırını düzenle.
 > Örn. yarım saatte bir: `*/30 * * * *`. (GitHub cron'u yoğun zamanlarda birkaç dk gecikebilir.)

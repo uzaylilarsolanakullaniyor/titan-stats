@@ -171,6 +171,16 @@ def discover_campaigns():
         epochs = [None] + list(range(1, epoch_count + 1))
         label_name = raw_name or symbol or slug.replace("-", " ").title()
         previous_meta = existing.get("meta", {})
+        epoch_ranges = previous_meta.get("epochRanges", {})
+        if start and end:
+            week = 7 * 24 * 60 * 60
+            epoch_ranges = {"all": {"startTime": start, "endTime": end}}
+            for epoch_number in range(1, epoch_count + 1):
+                epoch_start = start + (epoch_number - 1) * week
+                epoch_ranges[str(epoch_number)] = {
+                    "startTime": epoch_start,
+                    "endTime": min(end, epoch_start + week),
+                }
         campaigns[slug] = {
             "epochs": epochs,
             "meta": {
@@ -184,6 +194,7 @@ def discover_campaigns():
                 "costRate": previous_meta.get("costRate", 0.0003),
                 "startTime": start or previous_meta.get("startTime", 0),
                 "endTime": end or previous_meta.get("endTime", 0),
+                "epochRanges": epoch_ranges,
                 "tokenAddress": item.get("output_mint"),
                 "logo": token.get("logoURI") or item.get("image") or previous_meta.get("logo"),
             },

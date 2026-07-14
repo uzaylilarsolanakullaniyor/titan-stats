@@ -131,6 +131,18 @@ async function discoverCampaignDefs() {
       const totalReward = parseRewardAmount(`${item.title || ""} ${item.description || ""}`);
       const labelName = rawName || symbol || slug.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
       const previousMeta = existing.meta || {};
+      let epochRanges = previousMeta.epochRanges || {};
+      if (start && end) {
+        const week = 7 * 24 * 60 * 60;
+        epochRanges = { all: { startTime: start, endTime: end } };
+        for (let epochNumber = 1; epochNumber <= epochCount; epochNumber++) {
+          const epochStart = start + (epochNumber - 1) * week;
+          epochRanges[String(epochNumber)] = {
+            startTime: epochStart,
+            endTime: Math.min(end, epochStart + week),
+          };
+        }
+      }
       campaigns[slug] = {
         epochs: [null, ...Array.from({ length: epochCount }, (_, i) => i + 1)],
         meta: {
@@ -144,6 +156,7 @@ async function discoverCampaignDefs() {
           costRate: previousMeta.costRate || 0.0003,
           startTime: start || previousMeta.startTime || 0,
           endTime: end || previousMeta.endTime || 0,
+          epochRanges,
           tokenAddress: item.output_mint,
           logo: token.logoURI || item.image || previousMeta.logo,
         },

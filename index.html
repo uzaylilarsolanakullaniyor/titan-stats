@@ -377,6 +377,7 @@ function campaignConfig(slug){
     epochs: epochs.length ? epochs : (base.epochs || ['all']),
     startTime: Number(meta.startTime) || Number(base.startTime) || 0,
     endTime: Number(meta.endTime) || Number(base.endTime) || 0,
+    epochRanges: meta.epochRanges || base.epochRanges || {},
     tokenAddress: meta.tokenAddress || base.tokenAddress || '',
     logo: meta.logo || base.logo || '',
   };
@@ -402,6 +403,26 @@ function exactDateLabel(value){
     day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 }
+function campaignPeriod(cfg, epoch){
+  const key = String(epoch);
+  const explicit = cfg.epochRanges?.[key];
+  if(explicit){
+    return {
+      start: timestampMs(explicit.startTime),
+      end: timestampMs(explicit.endTime),
+      name: key === 'all' ? 'Kampanya' : 'Epoch '+key,
+    };
+  }
+  const campaignStart = timestampMs(cfg.startTime);
+  const campaignEnd = timestampMs(cfg.endTime);
+  if(key === 'all') return {start:campaignStart, end:campaignEnd, name:'Kampanya'};
+  const epochNumber = Number(key);
+  if(!campaignStart || !epochNumber) return {start:0, end:0, name:'Epoch '+key};
+  const week = 7 * 24 * 60 * 60 * 1000;
+  const start = campaignStart + (epochNumber-1) * week;
+  const end = campaignEnd ? Math.min(campaignEnd, start+week) : start+week;
+  return {start, end, name:'Epoch '+key};
+}
 function updateCampaignClock(){
   const clock = document.getElementById('campaignClock');
   if(currentCampaign === 'prestocks'){
@@ -409,8 +430,8 @@ function updateCampaignClock(){
     return;
   }
   const cfg = campaignConfig(currentCampaign);
-  const start = timestampMs(cfg.startTime);
-  const end = timestampMs(cfg.endTime);
+  const period = campaignPeriod(cfg, currentEpoch);
+  const {start, end} = period;
   if(!start && !end){
     clock.hidden = true;
     return;
@@ -421,18 +442,15 @@ function updateCampaignClock(){
   clock.hidden = false;
   clock.classList.toggle('ended', !!end && now >= end);
   if(start && now < start){
-    value.textContent = remainingLabel(start-now);
-    label.textContent = exactDateLabel(start) + ' başlar';
+    value.textContent = remainingLabel(start-now) + ' sonra';
   }else if(end && now < end){
-    value.textContent = remainingLabel(end-now);
-    label.textContent = exactDateLabel(end) + ' biter';
+    value.textContent = remainingLabel(end-now) + ' kaldı';
   }else if(end){
     value.textContent = 'Bitti';
-    label.textContent = exactDateLabel(end) + ' sona erdi';
   }else{
     value.textContent = 'Aktif';
-    label.textContent = exactDateLabel(start) + ' başladı';
   }
+  label.textContent = `${period.name} · ${exactDateLabel(start)} → ${end?exactDateLabel(end):'—'}`;
   clock.title = label.textContent;
 }
 function buildCampaignTabs(){
