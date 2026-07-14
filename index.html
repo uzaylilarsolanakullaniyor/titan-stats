@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Titan PreStocks · Volume Analytics</title>
+<title>Titan Analiz</title>
+<link rel="icon" type="image/png" href="./assets/titan-logo.png" />
 <style>
   :root{
     --bg:#070b14;
@@ -58,8 +59,9 @@
     background:rgba(7,11,20,.78);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);
     box-shadow:0 14px 38px rgba(2,6,23,.28)}
   .brand{display:flex;align-items:center;gap:14px}
-  .brand .mark{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
-    background:linear-gradient(145deg,var(--accent),var(--accent2));box-shadow:0 8px 22px rgba(94,234,212,.18);font-weight:850;font-size:18px;color:#07111b}
+  .brand .mark{width:63px;height:42px;border-radius:13px;display:block;overflow:hidden;flex:none;
+    background:#fdfbfb;box-shadow:0 8px 22px rgba(244,63,94,.20),inset 0 0 0 1px rgba(255,255,255,.12)}
+  .brand .mark img{display:block;width:100%;height:100%;object-fit:cover}
   .brand h1{font-size:18px;font-weight:750;letter-spacing:-.1px}
   .brand p{font-size:12.5px;color:var(--muted);margin-top:2px}
 
@@ -327,9 +329,9 @@
   <div class="wrap">
     <header class="top">
       <div class="brand">
-        <div class="mark">T</div>
+        <div class="mark"><img src="./assets/titan-logo.png" alt="Titan Analiz" /></div>
         <div>
-          <h1 id="brandTitle">Titan PreStocks · Volume Analytics</h1>
+          <h1 id="brandTitle">Titan Analiz</h1>
           <p id="brandSubtitle">Campaign and epoch performance at a glance</p>
         </div>
       </div>
@@ -339,11 +341,11 @@
           <button type="button" data-lang="tr" aria-pressed="false">TR</button>
         </div>
         <div class="segment" id="epochSeg">
-          <button data-epoch="all" class="active">All Campaign</button>
           <button data-epoch="1">Epoch 1</button>
           <button data-epoch="2">Epoch 2</button>
           <button data-epoch="3">Epoch 3</button>
           <button data-epoch="4">Epoch 4</button>
+          <button data-epoch="all" class="active">All Campaign</button>
         </div>
         <div class="refresh-control">
           <span class="refresh-status" id="refreshStatus" aria-live="polite">Preparing…</span>
@@ -431,7 +433,7 @@
 <script>
 const I18N = {
   en: {
-    appTitle:'Titan PreStocks · Volume Analytics', appSubtitle:'Campaign and epoch performance at a glance', language:'Language',
+    appTitle:'Titan Analiz', appSubtitle:'Campaign and epoch performance at a glance', language:'Language',
     allCampaign:'All Campaign', campaign:'Campaign', token:'Token', totalTrades:'Total Trades', topToken:'Top Token', participants:'Participants',
     campaignEnd:'Campaign end', chartTitle:'Volume by Token', chartDefaultHint:'Total volume across the top 100 traders',
     walletTitle:'Track Your Rank',
@@ -475,7 +477,7 @@ const I18N = {
     campaignFoot:'${symbol} campaign · source:', topTraders:'top 100 traders'
   },
   tr: {
-    appTitle:'Titan PreStocks · Hacim Analizi', appSubtitle:'Kampanya ve epoch performansı tek ekranda', language:'Dil',
+    appTitle:'Titan Analiz', appSubtitle:'Kampanya ve epoch performansı tek ekranda', language:'Dil',
     allCampaign:'Tüm Kampanya', campaign:'Kampanya', token:'Token', totalTrades:'Toplam İşlem', topToken:'Lider Token', participants:'Katılımcı',
     campaignEnd:'Kampanya bitişi', chartTitle:'Token Bazında Hacim Dağılımı', chartDefaultHint:'İlk 100 işlemci bazında toplam hacim',
     walletTitle:'Sıralamanı Gör',
@@ -862,7 +864,11 @@ function load(epoch){
 // epoch sekmelerini kampanyaya gore yeniden olustur
 function buildEpochTabs(){
   const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
-  const epochs = cfg ? cfg.epochs : ['all','1','2','3','4'];
+  const availableEpochs = (cfg ? cfg.epochs : ['all','1','2','3','4']).map(String);
+  const epochs = [
+    ...availableEpochs.filter(epoch=>epoch!=='all'),
+    ...availableEpochs.filter(epoch=>epoch==='all'),
+  ];
   if(!epochs.includes(String(currentEpoch))) currentEpoch = 'all';
   const seg = document.getElementById('epochSeg');
   seg.innerHTML = epochs.map(e=>
@@ -1544,10 +1550,13 @@ document.getElementById('campaignSeg').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.campaign === currentCampaign) return;
   currentCampaign = b.dataset.campaign;
+  currentEpoch = currentCampaign === 'prestocks'
+    ? 'all'
+    : activeEpochKey(campaignConfig(currentCampaign));
   document.querySelectorAll('#campaignSeg button').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   buildEpochTabs();          // epoch sekmelerini bu kampanyaya gore yenile
-  load('all');               // bastan basla
+  load(currentEpoch);        // kampanyanin su anda aktif epoch'unu ac
 });
 
 // epoch segment (delege; sekmeler dinamik olusturulur)

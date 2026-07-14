@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Titan PreStocks — Hacim Analiz Sunucusu
+Titan Analiz — Hacim Analiz Sunucusu
 
 titan.exchange API'si "Origin" kontrolü yaptigi icin tarayicidan dogrudan
 cagrilamaz. Bu kucuk sunucu:
@@ -169,6 +169,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, json.dumps({"error": "data.json not found"}))
             return
 
+        if parsed.path == "/assets/titan-logo.png":
+            try:
+                with open(os.path.join(HERE, "assets", "titan-logo.png"), "rb") as f:
+                    self._send(200, f.read(), "image/png")
+            except FileNotFoundError:
+                self._send(404, "logo bulunamadi", "text/plain; charset=utf-8")
+            return
+
         if parsed.path == "/api/data":
             q = parse_qs(parsed.query)
             epoch = q.get("epoch", ["all"])[0]
@@ -184,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"\n  Titan PreStocks Analiz  →  http://localhost:{PORT}\n")
+    print(f"\n  Titan Analiz  →  http://localhost:{PORT}\n")
     print("  Durdurmak icin: Ctrl+C\n")
     try:
         srv.serve_forever()
