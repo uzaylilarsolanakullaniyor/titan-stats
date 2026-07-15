@@ -79,6 +79,16 @@ def get_text(path):
         return r.read().decode("utf-8", "ignore")
 
 
+def fetch_prestock_tokens():
+    """Titan'in guncel token-listesi endpoint'inden PreStocks tokenlarini al."""
+    payload = get("/api/tokens/lists?include=prestocks")
+    prestocks = payload.get("lists", {}).get("prestocks", {})
+    tokens = prestocks.get("results", []) if prestocks.get("success") else []
+    if not isinstance(tokens, list) or not tokens:
+        raise RuntimeError("PreStocks token listesi bos veya gecersiz")
+    return tokens
+
+
 def slugify(value):
     value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode().lower()
     return re.sub(r"[^a-z0-9]+", "", value)
@@ -469,7 +479,7 @@ def build_campaign_epoch(slug, epoch):
 
 def main():
     campaign_defs = discover_campaigns()
-    tokens = get("/api/tokens/prestocks").get("results", [])
+    tokens = fetch_prestock_tokens()
     print(f"{len(tokens)} token bulundu.")
     data = {}
     for ep in EPOCHS:
