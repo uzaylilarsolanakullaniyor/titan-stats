@@ -59,6 +59,15 @@ async function getText(path) {
   return r.text();
 }
 
+async function getPrestockTokens() {
+  const payload = await get("/api/tokens/lists?include=prestocks");
+  const list = payload?.lists?.prestocks;
+  if (!list?.success || !Array.isArray(list.results) || !list.results.length) {
+    throw new Error("PreStocks token list is empty or invalid");
+  }
+  return list.results;
+}
+
 function slugify(value) {
   return String(value || "")
     .normalize("NFKD")
@@ -432,10 +441,10 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=86400");
   try {
     const [tokenResponse, campaignDefs] = await Promise.all([
-      get("/api/tokens/prestocks"),
+      getPrestockTokens(),
       discoverCampaignDefs(),
     ]);
-    const tokens = tokenResponse.results || [];
+    const tokens = tokenResponse;
     // Tum epoch'lari paralel cek (hiz icin)
     const built = await Promise.all(EPOCHS.map((ep) => buildEpoch(ep, tokens)));
     const out = {};
