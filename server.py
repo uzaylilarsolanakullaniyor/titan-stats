@@ -56,8 +56,12 @@ def _get(path):
 
 def fetch_tokens():
     """PreStocks token listesini canli ceker (sembol, logo, adres)."""
-    d = _get("/api/tokens/prestocks")
-    return d.get("results", [])
+    payload = _get("/api/tokens/lists?include=prestocks")
+    prestocks = payload.get("lists", {}).get("prestocks", {})
+    tokens = prestocks.get("results", []) if prestocks.get("success") else []
+    if not isinstance(tokens, list) or not tokens:
+        raise RuntimeError("PreStocks token listesi bos veya gecersiz")
+    return tokens
 
 
 def build_data(epoch):
