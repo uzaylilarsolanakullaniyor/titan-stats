@@ -18,7 +18,10 @@ const HEADERS = {
 };
 const CAMPAIGN = 4;
 const LIMIT = 100;
-const EPOCHS = [null, 1, 2, 3, 4]; // null = tum kampanya
+// Titan'in mevcut PreStocks gecmisi. Her yenilemede bunun sonrasini da
+// sorgulariz; Titan yeni epoch acinca kod degisikligi gerektirmeden eklenir.
+const KNOWN_PRESTOCK_EPOCHS = [1, 2, 3, 4];
+const MAX_PRESTOCK_EPOCHS = 24;
 const FALLBACK_CAMPAIGNS = {
   spacex: {
     epochs: [null, 1, 2],
@@ -66,6 +69,31 @@ async function getPrestockTokens() {
     throw new Error("PreStocks token list is empty or invalid");
   }
   return list.results;
+}
+
+async function discoverPrestockEpochs(tokens) {
+  const epochs = [...KNOWN_PRESTOCK_EPOCHS];
+  const sample = tokens.find(token => token?.address);
+  if (!sample) return epochs;
+
+  for (let epoch = epochs.at(-1) + 1; epoch <= MAX_PRESTOCK_EPOCHS; epoch++) {
+    try {
+      const payload = await post("/api/wallet-stats/prestock-leaderboard", {
+        epoch,
+        wallet_address: "",
+        limit: 1,
+        campaign: CAMPAIGN,
+        token_contract_address: sample.address,
+      });
+      // Gecerli ama henuz islem olmayan bir epoch bile success/epoch alanlarini
+      // dondurur. Gelecekteki epoch'lar ise Titan tarafinda hata verir.
+      if (!payload?.success || Number(payload.epoch) !== epoch) break;
+      epochs.push(epoch);
+    } catch (e) {
+      break;
+    }
+  }
+  return epochs;
 }
 
 function slugify(value) {
@@ -445,10 +473,11 @@ export default async function handler(req, res) {
       discoverCampaignDefs(),
     ]);
     const tokens = tokenResponse;
+    const prestockEpochs = [null, ...(await discoverPrestockEpochs(tokens))];
     // Tum epoch'lari paralel cek (hiz icin)
-    const built = await Promise.all(EPOCHS.map((ep) => buildEpoch(ep, tokens)));
+    const built = await Promise.all(prestockEpochs.map((ep) => buildEpoch(ep, tokens)));
     const out = {};
-    EPOCHS.forEach((ep, i) => {
+    prestockEpochs.forEach((ep, i) => {
       out[ep === null ? "all" : String(ep)] = built[i];
     });
     // Tek-token/tek-market kampanyalar. Bazilarinda epoch ayrimi yoktur.
