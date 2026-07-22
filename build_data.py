@@ -31,7 +31,10 @@ HEADERS = {
 }
 CAMPAIGN = 4     # PreStocks kampanya id'si
 LIMIT = 100      # API ust siniri
-EPOCHS = [None, 1, 2, 3, 4]   # None = tum kampanya
+# Titan'in mevcut PreStocks gecmisi. Her calismada sonraki epoch'lar taranir;
+# yeni epoch acildiginda bu listeye elle mudahale gerekmez.
+KNOWN_PRESTOCK_EPOCHS = [1, 2, 3, 4]
+MAX_PRESTOCK_EPOCHS = 24
 
 # Titan duyurusu gecici olarak ulasilamazsa kullanilan bilinen kampanyalar.
 # Yeni kampanyalar discover_campaigns() tarafindan otomatik eklenir.
@@ -87,6 +90,32 @@ def fetch_prestock_tokens():
     if not isinstance(tokens, list) or not tokens:
         raise RuntimeError("PreStocks token listesi bos veya gecersiz")
     return tokens
+
+
+def discover_prestock_epochs(tokens):
+    """Titan'in acmis oldugu bitisik PreStocks epoch'larini algila."""
+    epochs = list(KNOWN_PRESTOCK_EPOCHS)
+    sample = next((token for token in tokens if token.get("address")), None)
+    if not sample:
+        return epochs
+
+    for epoch in range(epochs[-1] + 1, MAX_PRESTOCK_EPOCHS + 1):
+        try:
+            payload = post("/api/wallet-stats/prestock-leaderboard", {
+                "epoch": epoch,
+                "wallet_address": "",
+                "limit": 1,
+                "campaign": CAMPAIGN,
+                "token_contract_address": sample["address"],
+            })
+        except Exception:
+            break
+        # Henuz acilmamis epoch'lar hata doner. Gecerli ama bos epoch'lar ise
+        # success ve dogru epoch degerini donmeye devam eder.
+        if not payload.get("success") or int(payload.get("epoch") or 0) != epoch:
+            break
+        epochs.append(epoch)
+    return epochs
 
 
 def slugify(value):
@@ -482,7 +511,9 @@ def main():
     tokens = fetch_prestock_tokens()
     print(f"{len(tokens)} token bulundu.")
     data = {}
-    for ep in EPOCHS:
+    prestock_epochs = [None, *discover_prestock_epochs(tokens)]
+    print("  epoch'lar: " + ", ".join(str(epoch) for epoch in prestock_epochs if epoch is not None))
+    for ep in prestock_epochs:
         key = "all" if ep is None else str(ep)
         data[key] = build_epoch(ep, tokens)
         print(f"  {key:>3}: ${round(data[key]['grandVolume']):,}")
