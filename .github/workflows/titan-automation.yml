@@ -39,6 +39,7 @@ jobs:
           if [ -n "$(git status --porcelain data.json)" ]; then
             git add data.json
             git commit -m "chore: Titan Stats verisini guncelle ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+            git pull --rebase origin main
             git push
           else
             echo "Veri degismemis, commit yok."
