@@ -864,7 +864,12 @@ function load(epoch){
 // epoch sekmelerini kampanyaya gore yeniden olustur
 function buildEpochTabs(){
   const cfg = currentCampaign === 'prestocks' ? null : campaignConfig(currentCampaign);
-  const availableEpochs = (cfg ? cfg.epochs : ['all','1','2','3','4']).map(String);
+  // PreStocks epoch'lari API/data.json'dan gelir. Yeni bir epoch algilandiginda
+  // bu sekme de sayfa yenilenmeden otomatik olarak gorunur.
+  const prestockEpochs = Object.keys(DATA)
+    .filter(key => key === 'all' || (/^\d+$/.test(key) && Array.isArray(DATA[key]?.tokens)))
+    .sort((a, b) => a === 'all' ? 1 : b === 'all' ? -1 : Number(a) - Number(b));
+  const availableEpochs = (cfg ? cfg.epochs : prestockEpochs).map(String);
   const epochs = [
     ...availableEpochs.filter(epoch=>epoch!=='all'),
     ...availableEpochs.filter(epoch=>epoch==='all'),
